@@ -16,7 +16,7 @@ dotenv.load_dotenv()
 xui_host = os.getenv("XUI_HOST")
 xui_username = os.getenv("XUI_USERNAME")
 xui_password = os.getenv("XUI_PASSWORD")
-MAIN_REMARK = os.getenv("MAIN_REMARK")
+main_remark = os.getenv("MAIN_REMARK")
 
 def login() -> tuple[Api | None, Inbound | None]:
     """Входит в панель X-UI и находит нужный inbound."""
@@ -27,11 +27,11 @@ def login() -> tuple[Api | None, Inbound | None]:
         inbounds: list[Inbound] = api.inbound.get_list()
         target_inbound = None
         for inbound in inbounds:
-            if inbound.remark == MAIN_REMARK:
+            if inbound.remark == main_remark:
                 target_inbound = inbound
                 break
         if target_inbound is None:
-            print(f"Error: No inbound found with remark '{MAIN_REMARK}'")
+            print(f"Error: No inbound found with remark '{main_remark}'")
             return api, None
         return api, target_inbound
     except Exception as e:
@@ -54,7 +54,7 @@ def get_connection_string(inbound: Inbound, user_uuid: str, user_email: str) -> 
     connection_string = (
         f"vless://{user_uuid}@germany.evansvl.ru:2040"
         f"?type=tcp&security=reality&pbk={public_key}&fp=random&sni={website_name}"
-        f"&sid={short_id}&spx=%2F#{MAIN_REMARK}-{user_email}"
+        f"&sid={short_id}&spx=%2F#{main_remark}-{user_email}"
     )
     return connection_string
 
