@@ -16,7 +16,7 @@ dotenv.load_dotenv()
 xui_host = os.getenv("XUI_HOST")
 xui_username = os.getenv("XUI_USERNAME")
 xui_password = os.getenv("XUI_PASSWORD")
-MAIN_REMARK = "NNVPN"
+MAIN_REMARK = os.getenv("MAIN_REMARK")
 
 def login() -> tuple[Api | None, Inbound | None]:
     """Входит в панель X-UI и находит нужный inbound."""
