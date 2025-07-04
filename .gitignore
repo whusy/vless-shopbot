@@ -1,0 +1,14 @@
+# Ignore Visual Studio Code settings folder
+.vscode/
+
+# Ignore environment variable file
+.env
+
+# Ignore files starting with an underscore (e.g., _config, _env)
+_*
+
+# Ignore all database files (.db)
+*.db
+
+# Ignore virtual environment folder
+venv/
