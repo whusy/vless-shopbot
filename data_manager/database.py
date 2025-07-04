@@ -7,7 +7,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_FILE = os.path.join(BASE_DIR, "users.db")
 
 def initialize_db():
-    """Создает базу данных и таблицы, если их нет."""
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
