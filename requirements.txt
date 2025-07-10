@@ -1,7 +1,0 @@
-aiogram>=3.2.0
-python-dotenv
-py3xui
-pyotp
-qrcode[pil]
-flask
-yookassa

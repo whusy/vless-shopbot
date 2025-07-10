@@ -1,14 +1,21 @@
-# Ignore Visual Studio Code settings folder
-.vscode/
-
-# Ignore environment variable file
-.env
-
-# Ignore files starting with an underscore (e.g., _config, _env)
-__pycache__/
-
-# Ignore all database files (.db)
-*.db
-
-# Ignore virtual environment folder
+.venv/
 venv/
+env/
+ENV/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+build/
+dist/
+*.egg-info/
+
+.env
+*.db
+TODO
+
+.idea/
+.vscode/
+*.DS_Store

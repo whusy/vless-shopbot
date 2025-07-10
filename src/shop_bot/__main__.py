@@ -1,0 +1,102 @@
+import logging
+import os
+import threading
+import asyncio
+from dotenv import load_dotenv
+
+from yookassa import Configuration
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode 
+
+from shop_bot.bot import handlers
+from shop_bot.bot import admin_handlers
+from shop_bot.bot import handlers
+from shop_bot.webhook_server.app import create_webhook_app
+from shop_bot.config import PLANS
+from shop_bot.data_manager.scheduler import periodic_subscription_check
+from shop_bot.data_manager import database
+
+def main():
+    load_dotenv()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
+    )
+    logger = logging.getLogger(__name__)
+
+    database.initialize_db()
+
+    TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+    TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME")
+    ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")
+
+    yookassa_shop_id = os.getenv("YOOKASSA_SHOP_ID")
+    yookassa_secret_key = os.getenv("YOOKASSA_SECRET_KEY")
+    crypto_api_key = os.getenv("CRYPTO_API_KEY")
+
+    yookassa_enabled = bool(yookassa_shop_id and yookassa_shop_id.strip() and yookassa_secret_key and yookassa_secret_key.strip())
+    crypto_enabled = bool(crypto_api_key and crypto_api_key.strip())
+
+    if not TELEGRAM_TOKEN or not TELEGRAM_BOT_USERNAME:
+        raise ValueError("Необходимо установить TELEGRAM_BOT_TOKEN и TELEGRAM_BOT_USERNAME")
+
+    yookassa_enabled = bool(yookassa_shop_id and yookassa_shop_id.strip() and yookassa_secret_key and yookassa_secret_key.strip())
+    crypto_enabled = bool(crypto_api_key and crypto_api_key.strip())
+
+    payment_methods = {
+        "yookassa": yookassa_enabled,
+        "crypto": crypto_enabled
+    }
+
+    if payment_methods["yookassa"]:
+        Configuration.account_id = yookassa_shop_id
+        Configuration.secret_key = yookassa_secret_key
+        logger.info("YooKassa payment method is ENABLED.")
+    else:
+        logger.warning("YooKassa payment method is DISABLED (YOOKASSA_SHOP_ID or YOOKASSA_SECRET_KEY is missing in .env).")
+
+    if payment_methods["crypto"]:
+        logger.info("Crypto payment method is ENABLED.")
+    else:
+        logger.warning("Crypto payment method is DISABLED (CRYPTO_API_KEY is missing in .env).")
+
+    if not payment_methods["yookassa"] and not payment_methods["crypto"]:
+        logger.critical("!!! NO PAYMENT SYSTEMS CONFIGURED! Bot cannot accept payments. !!!")
+    handlers.PLANS = PLANS
+    handlers.TELEGRAM_BOT_USERNAME = TELEGRAM_BOT_USERNAME
+    handlers.CRYPTO_API_KEY = crypto_api_key
+    handlers.PAYMENT_METHODS = payment_methods
+    handlers.ADMIN_TELEGRAM_ID = ADMIN_TELEGRAM_ID
+    
+    bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    dp = Dispatcher()
+    dp.include_router(admin_handlers.admin_router)
+    dp.include_router(handlers.user_router)
+
+    flask_app = create_webhook_app(bot, handlers.process_successful_payment)
+
+    async def start_all():
+        loop = asyncio.get_running_loop()
+        flask_app.config['EVENT_LOOP'] = loop
+        
+        flask_thread = threading.Thread(
+            target=lambda: flask_app.run(host='0.0.0.0', port=1488, use_reloader=False),
+            daemon=True
+        )
+        flask_thread.start()
+        logger.info("Flask server started on port 1488.")
+
+        if database.get_all_vpn_users():
+             asyncio.create_task(periodic_subscription_check())
+
+        logger.info("Aiogram Bot polling started...")
+        await dp.start_polling(bot)
+
+    try:
+        asyncio.run(start_all())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Bot stopped.")
+
+if __name__ == "__main__":
+    main()

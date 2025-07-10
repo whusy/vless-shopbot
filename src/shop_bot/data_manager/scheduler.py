@@ -2,8 +2,8 @@ import asyncio
 import logging
 from datetime import datetime
 
-from data_manager import database
-import modules.xui_api as xui_api
+from shop_bot.data_manager import database
+from shop_bot.modules import xui_api
 
 CHECK_INTERVAL_SECONDS = 300
 logger = logging.getLogger(__name__)

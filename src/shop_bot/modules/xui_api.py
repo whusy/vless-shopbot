@@ -2,44 +2,41 @@ import os
 import uuid
 import dotenv
 from datetime import datetime, timedelta
-import sys
-from pathlib import Path
-
-project_root = Path(__file__).resolve().parent.parent
-sys.path.append(str(project_root))
+import logging
 
 from py3xui import Api, Client, Inbound
-import modules.otp
+from . import otp
 
 dotenv.load_dotenv()
+logger = logging.getLogger(__name__)
 
 xui_host = os.getenv("XUI_HOST")
 xui_username = os.getenv("XUI_USERNAME")
 xui_password = os.getenv("XUI_PASSWORD")
-main_remark = os.getenv("MAIN_REMARK")
+MAIN_REMARK = "NNVPN"
 
 def login() -> tuple[Api | None, Inbound | None]:
-    """Входит в панель X-UI и находит нужный inbound."""
     try:
-        otp_code = modules.otp.getTOTP()
+        otp_code = otp.getTOTP()
+        if not otp_code:
+            raise ValueError("Failed to generate OTP code.")
         api = Api.from_env()
         api.login(otp_code)
         inbounds: list[Inbound] = api.inbound.get_list()
         target_inbound = None
         for inbound in inbounds:
-            if inbound.remark == main_remark:
+            if inbound.remark == MAIN_REMARK:
                 target_inbound = inbound
                 break
         if target_inbound is None:
-            print(f"Error: No inbound found with remark '{main_remark}'")
+            logger.error(f"No inbound found with remark '{MAIN_REMARK}'")
             return api, None
         return api, target_inbound
     except Exception as e:
-        print(f"Login or inbound retrieval failed: {e}")
+        logger.error(f"Login or inbound retrieval failed: {e}", exc_info=True)
         return None, None
 
 def get_connection_string(inbound: Inbound, user_uuid: str, user_email: str) -> str | None:
-    """Генерирует строку подключения vless."""
     if not inbound: return None
     settings = inbound.stream_settings.reality_settings.get("settings")
     if not settings: return None
@@ -54,12 +51,11 @@ def get_connection_string(inbound: Inbound, user_uuid: str, user_email: str) -> 
     connection_string = (
         f"vless://{user_uuid}@germany.evansvl.ru:2040"
         f"?type=tcp&security=reality&pbk={public_key}&fp=random&sni={website_name}"
-        f"&sid={short_id}&spx=%2F#{main_remark}-{user_email}"
+        f"&sid={short_id}&spx=%2F#{MAIN_REMARK}-{user_email}"
     )
     return connection_string
 
 def get_client_by_email(email: str, api: Api) -> Client | None:
-    """Находит клиента по email."""
     try:
         client = api.client.get_by_email(email)
         return client if client else None

@@ -1,0 +1,23 @@
+[project]
+name = "3x-ui-shop"
+version = "1.0.0"
+description = "Бот для автоматической продажи VLESS VPN из панели 3x-ui"
+dependencies = [
+    "aiogram==3.21.0",
+    "flask==3.1.1",
+    "py3xui==0.4.0",
+    "pyotp==2.9.0",
+    "python-dotenv==1.1.1",
+    "qrcode[pil]==8.2",
+    "yookassa==3.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pip-tools",
+    "pylint",
+    "black",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
