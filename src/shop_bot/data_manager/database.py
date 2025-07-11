@@ -20,7 +20,6 @@ def initialize_db():
                     agreed_to_terms BOOLEAN DEFAULT 0
                 )
             ''')
-            # Таблица ключей
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS vpn_keys (
                     key_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +49,6 @@ def initialize_db():
         logging.error(f"Database error on initialization: {e}")
 
 def get_setting(key: str) -> str | None:
-    """Получает значение настройки по ключу."""
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
@@ -62,7 +60,6 @@ def get_setting(key: str) -> str | None:
         return None
 
 def update_setting(key: str, value: str):
-    """Обновляет значение настройки."""
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
@@ -98,7 +95,6 @@ def get_user(telegram_id: int):
         return None
 
 def set_terms_agreed(telegram_id: int):
-    """Отмечает, что пользователь принял соглашение."""
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
@@ -128,7 +124,6 @@ def set_trial_used(telegram_id: int):
         logging.error(f"Failed to set trial used for user {telegram_id}: {e}")
 
 def add_new_key(user_id: int, xui_client_uuid: str, key_email: str, expiry_timestamp_ms: int):
-    """Добавляет новый ключ и возвращает его ID."""
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
