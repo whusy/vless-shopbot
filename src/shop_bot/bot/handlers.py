@@ -39,7 +39,6 @@ admin_router = Router()
 user_router = Router()
 
 async def show_main_menu(message: types.Message, edit_message: bool = False):
-    """Отправляет или редактирует сообщение, показывая главное меню."""
     user_id = message.chat.id
     user_db_data = get_user(user_id)
     user_keys = get_user_keys(user_id)
@@ -63,7 +62,6 @@ class UserAgreement(StatesGroup):
 
 @user_router.message(Command("start"))
 async def start_handler(message: types.Message, state: FSMContext):
-    """Проверяет, принял ли пользователь соглашение. Если нет - предлагает принять."""
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.full_name
     
@@ -106,7 +104,6 @@ async def agree_to_terms_handler(callback: types.CallbackQuery, state: FSMContex
 
 @user_router.message(UserAgreement.waiting_for_agreement)
 async def agreement_fallback_handler(message: types.Message):
-    """Ловит все сообщения, пока пользователь не принял соглашение."""
     await message.answer("Пожалуйста, сначала примите условия использования, нажав на кнопку выше.")
 
 @user_router.message(F.text == "🏠 Главное меню")
@@ -195,10 +192,8 @@ async def trial_period_handler(callback: types.CallbackQuery):
         logger.error(f"Error creating trial key for user {user_id}: {e}", exc_info=True)
         await callback.message.edit_text("❌ Произошла ошибка при создании пробного ключа.")
 
-@admin_router.callback_query(F.data == "open_admin_panel")
+@user_router.callback_query(F.data == "open_admin_panel")
 async def open_admin_panel_handler(callback: types.CallbackQuery):
-    """Показывает админ-панель. Этот обработчик должен быть здесь,
-    так как он вызывается из главного меню, которое генерируется в этом файле."""
     if str(callback.from_user.id) != ADMIN_ID:
         await callback.answer("У вас нет доступа.", show_alert=True)
         return
