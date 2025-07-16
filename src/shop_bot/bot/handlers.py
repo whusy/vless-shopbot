@@ -33,6 +33,7 @@ CRYPTO_API_KEY = None
 PAYMENT_METHODS = None
 PLANS = None
 ADMIN_ID = os.getenv("ADMIN_TELEGRAM_ID")
+MAIN_REMARK = os.getenv("MAIN_REMARK")
 
 logger = logging.getLogger(__name__)
 admin_router = Router()
@@ -75,11 +76,16 @@ async def start_handler(message: types.Message, state: FSMContext):
         )
         await show_main_menu(message)
     else:
+        terms_url = get_setting("terms_url")
+        privacy_url = get_setting("privacy_url")
+        if not terms_url or not privacy_url:
+            await message.answer("❗️ Условия использования и политика конфиденциальности не установлены. Пожалуйста, обратитесь к администратору.")
+            return
         agreement_text = (
             "<b>Добро пожаловать!</b>\n\n"
             "Перед началом использования бота, пожалуйста, ознакомьтесь и примите наши "
-            "<a href='https://telegra.ph/Usloviya-ispolzovaniya-Terms-of-Service-07-05'>Условия использования</a> и "
-            "<a href='https://telegra.ph/Politika-konfidencialnosti-Privacy-Policy-07-05'>Политику конфиденциальности</a>.\n\n"
+            f"<a href='{terms_url}'>Условия использования</a> и "
+            f"<a href='{privacy_url}'>Политику конфиденциальности</a>.\n\n"
             "Нажимая кнопку 'Принимаю', вы подтверждаете свое согласие с этими документами."
         )
         await message.answer(agreement_text, reply_markup=keyboards.create_agreement_keyboard(), disable_web_page_preview=True)
@@ -324,7 +330,7 @@ async def create_yookassa_payment_handler(callback: types.CallbackQuery):
         payment = Payment.create({
             "amount": {"value": price_rub, "currency": "RUB"},
             "confirmation": {"type": "redirect", "return_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}"},
-            "capture": True, "description": f"Оплата подписки NNVPN ({name})",
+            "capture": True, "description": f"Оплата подписки {MAIN_REMARK} ({name})",
             "metadata": {
                 "user_id": user_id, "months": months, "price": price_rub, 
                 "action": action, "key_id": key_id,
@@ -361,7 +367,7 @@ async def create_crypto_payment_handler(callback: types.CallbackQuery):
         async with aiohttp.ClientSession() as session:
             payload = {
                 "amount": float(price_rub), "currency": "RUB", "order_id": str(uuid.uuid4()),
-                "description": f"Оплата подписки NNVPN ({name})",
+                "description": f"Оплата подписки {MAIN_REMARK} ({name})",
                 "metadata": {
                     "user_id": user_id, "months": months, "price": price_rub, 
                     "action": action, "key_id": key_id,

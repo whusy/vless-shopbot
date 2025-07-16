@@ -37,9 +37,9 @@ def initialize_db():
                 )
             ''')
             default_settings = {
-                "about_text": "<b>NNVPN Bot</b> - это ваш надежный помощник...",
-                "terms_url": "https://telegra.ph/Usloviya-ispolzovaniya-Terms-of-Service-07-05",
-                "privacy_url": "https://telegra.ph/Politika-konfidencialnosti-Privacy-Policy-07-05"
+                "about_text": "Настройки не установлены. Установите их в админ-панели.",
+                "terms_url": "https://telegra.ph/",
+                "privacy_url": "https://telegra.ph/"
             }
             for key, value in default_settings.items():
                 cursor.execute("INSERT OR REPLACE INTO bot_settings (key, value) VALUES (?, ?)", (key, value))

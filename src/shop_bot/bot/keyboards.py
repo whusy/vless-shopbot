@@ -32,7 +32,7 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="📝 Изменить 'О проекте'", callback_data="admin_edit_about")
     builder.button(text="📄 Изменить ссылку 'Условия'", callback_data="admin_edit_terms")
     builder.button(text="🔒 Изменить ссылку 'Политика'", callback_data="admin_edit_privacy")
-    builder.button(text="⬅️ Выйти из админ. режима", callback_data="admin_exit")
+    builder.button(text="⬅️ Выйти из админ. режима", callback_data="back_to_main_menu")
     builder.adjust(1)
     return builder.as_markup()
 
