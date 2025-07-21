@@ -25,7 +25,7 @@ from shop_bot.data_manager.database import (
 from shop_bot.config import (
     PLANS, CHOOSE_PLAN_MESSAGE, WELCOME_MESSAGE, 
     get_profile_text, get_vpn_active_text, VPN_INACTIVE_TEXT, VPN_NO_DATA_TEXT,
-    get_key_info_text, CHOOSE_PAYMENT_METHOD_MESSAGE, get_purchase_success_text
+    get_key_info_text, CHOOSE_PAYMENT_METHOD_MESSAGE, get_purchase_success_text, ABOUT_TEXT, TERMS_URL, PRIVACY_URL, SUPPORT_USER, SUPPORT_TEXT, CHANNEL_URL
 )
 
 TELEGRAM_BOT_USERNAME = None
@@ -151,11 +151,56 @@ async def about_handler(callback: types.CallbackQuery):
     about_text = get_setting("about_text")
     terms_url = get_setting("terms_url")
     privacy_url = get_setting("privacy_url")
-    
-    await callback.message.edit_text(
+
+    if about_text == ABOUT_TEXT and terms_url == TERMS_URL and privacy_url == PRIVACY_URL:
+        await callback.message.edit_text(
+            "Информация о проекте не установлена. Установите её в админ-панели.",
+            reply_markup=keyboards.create_back_to_menu_keyboard()
+        )
+    elif terms_url == TERMS_URL and privacy_url == PRIVACY_URL:
+        await callback.message.edit_text(
+            about_text,
+            reply_markup=keyboards.create_back_to_menu_keyboard()
+        )
+    elif terms_url == TERMS_URL:
+        await callback.message.edit_text(
+            about_text,
+            reply_markup=keyboards.create_about_keyboard_terms(privacy_url)
+        )
+    elif privacy_url == PRIVACY_URL:
+        await callback.message.edit_text(
+            about_text,
+            reply_markup=keyboards.create_about_keyboard_privacy(terms_url)
+        )
+    else:
+        await callback.message.edit_text(
         about_text,
         reply_markup=keyboards.create_about_keyboard(terms_url, privacy_url)
-    )
+        )
+
+@user_router.callback_query(F.data == "show_help")
+async def about_handler(callback: types.CallbackQuery):
+    await callback.answer()
+
+    support_user = get_setting("support_user")
+    support_text = get_setting("support_text")
+
+    if support_user == SUPPORT_USER and support_text == SUPPORT_TEXT:
+        await callback.message.edit_text(
+            support_user,
+            reply_markup=keyboards.create_back_to_menu_keyboard()
+        )
+    elif support_text == SUPPORT_TEXT:
+        await callback.message.edit_text(
+            "Для связи с поддержкой используйте кнопку ниже.",
+            reply_markup=keyboards.create_support_keyboard(support_user)
+        )
+    else:
+        await callback.message.edit_text(
+            support_text,
+            "Для связи с поддержкой используйте кнопку ниже.",
+            reply_markup=keyboards.create_support_keyboard(support_user)
+        )
 
 @user_router.callback_query(F.data == "manage_keys")
 async def manage_keys_handler(callback: types.CallbackQuery):

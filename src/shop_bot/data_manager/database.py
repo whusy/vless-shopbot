@@ -3,6 +3,7 @@ from datetime import datetime
 import logging
 import os
 from pathlib import Path
+from shop_bot.config import ABOUT_TEXT, TERMS_URL, PRIVACY_URL, SUPPORT_USER, SUPPORT_TEXT, CHANNEL_URL
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +38,16 @@ def initialize_db():
                 )
             ''')
             default_settings = {
-                "about_text": "Настройки не установлены. Установите их в админ-панели.",
-                "terms_url": "https://telegra.ph/",
-                "privacy_url": "https://telegra.ph/"
+                "about_text": ABOUT_TEXT,
+                "terms_url": TERMS_URL,
+                "privacy_url": PRIVACY_URL,
+                "support_user": SUPPORT_USER,
+                "support_text": SUPPORT_TEXT,
+                "channel_url": CHANNEL_URL,
             }
-            for key, value in default_settings.items():
-                cursor.execute("INSERT OR REPLACE INTO bot_settings (key, value) VALUES (?, ?)", (key, value))
+            if not cursor.execute("SELECT COUNT(*) FROM bot_settings").fetchone()[0]:
+                for key, value in default_settings.items():
+                    cursor.execute("INSERT OR REPLACE INTO bot_settings (key, value) VALUES (?, ?)", (key, value))
             conn.commit()
             logging.info("Database with 'created_date' column initialized successfully.")
     except sqlite3.Error as e:

@@ -18,7 +18,8 @@ class AdminEdit(StatesGroup):
     waiting_for_about_text = State()
     waiting_for_terms_url = State()
     waiting_for_privacy_url = State()
-
+    waiting_for_support_user = State()
+    waiting_for_support_text = State()
 
 def is_valid_url(url: str) -> bool:
     try:
@@ -26,7 +27,6 @@ def is_valid_url(url: str) -> bool:
         return all([result.scheme, result.netloc])
     except:
         return False
-
 
 @admin_router.message(Command("admin"))
 async def admin_panel_handler(message: types.Message):
@@ -41,6 +41,8 @@ async def start_editing_handler(callback: types.CallbackQuery, state: FSMContext
         "about": ("Пришлите новый текст для раздела 'О проекте'.", AdminEdit.waiting_for_about_text),
         "terms": ("Пришлите новую ссылку на Условия использования.", AdminEdit.waiting_for_terms_url),
         "privacy": ("Пришлите новую ссылку на Политику конфиденциальности.", AdminEdit.waiting_for_privacy_url),
+        "support_user": ("Пришлите новую ссылку на поддержку.", AdminEdit.waiting_for_support_user),
+        "support_text": ("Пришлите новый текст для раздела 'Поддержка'.", AdminEdit.waiting_for_support_text),
     }
     if action in prompts:
         prompt_text, new_state = prompts[action]
@@ -54,12 +56,6 @@ async def cancel_editing_handler(callback: types.CallbackQuery, state: FSMContex
     await callback.message.edit_text("Действие отменено. Вы в админ-панели.", reply_markup=keyboards.create_admin_keyboard())
     await callback.answer()
 
-@admin_router.callback_query(F.data == "admin_exit")
-async def exit_admin_handler(callback: types.CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.delete()
-    await callback.answer("Вы вышли из админ-панели.")
-
 async def process_new_content(message: types.Message, state: FSMContext, db_key: str):
     update_setting(db_key, message.text)
     await state.clear()
@@ -68,6 +64,7 @@ async def process_new_content(message: types.Message, state: FSMContext, db_key:
 @admin_router.message(AdminEdit.waiting_for_about_text)
 async def process_about_text(message: types.Message, state: FSMContext):
     await process_new_content(message, state, "about_text")
+
 
 @admin_router.message(AdminEdit.waiting_for_terms_url)
 async def process_terms_url(message: types.Message, state: FSMContext):
@@ -82,3 +79,14 @@ async def process_privacy_url(message: types.Message, state: FSMContext):
         await process_new_content(message, state, "privacy_url")
     else:
         await message.answer("❌ **Ошибка:** Это не похоже на валидную ссылку. Она должна начинаться с `http://` или `https://`. Попробуйте еще раз или нажмите 'Отмена'.")
+
+@admin_router.message(AdminEdit.waiting_for_support_user)
+async def process_support_user(message: types.Message, state: FSMContext):
+    if is_valid_url(message.text):
+        await process_new_content(message, state, "support_user")
+    else:
+        await message.answer("❌ **Ошибка:** Это не похоже на валидную ссылку. Она должна начинаться с `http://` или `https://`. Попробуйте еще раз или нажмите 'Отмена'.")
+
+@admin_router.message(AdminEdit.waiting_for_support_text)
+async def process_support_text(message: types.Message, state: FSMContext):
+    await process_new_content(message, state, "support_text")

@@ -10,18 +10,20 @@ main_reply_keyboard = ReplyKeyboardMarkup(
 def create_main_menu_keyboard(user_keys: list, trial_available: bool, is_admin: bool) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     
-    builder.button(text="👤 Мой профиль", callback_data="show_profile")
-    builder.button(text=f"🔑 Мои ключи ({len(user_keys)})", callback_data="manage_keys")
-    
     if trial_available:
         builder.button(text="🎁 Попробовать бесплатно (3 дня)", callback_data="get_trial")
-    
+
+    builder.button(text="👤 Мой профиль", callback_data="show_profile")
+    builder.button(text=f"🔑 Мои ключи ({len(user_keys)})", callback_data="manage_keys")
+
+    builder.button(text="🆘 Поддержка", callback_data="show_help")
+
     builder.button(text="ℹ️ О проекте", callback_data="show_about")
-    
+
     if is_admin:
         builder.button(text="⚙️ Админ-панель", callback_data="open_admin_panel")
 
-    layout = [2, 1 if trial_available else 0, 1, 1 if is_admin else 0]
+    layout = [1 if trial_available else 0, 2, 1, 1, 1 if is_admin else 0]
     actual_layout = [size for size in layout if size > 0]
     builder.adjust(*actual_layout)
     
@@ -32,6 +34,8 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="📝 Изменить 'О проекте'", callback_data="admin_edit_about")
     builder.button(text="📄 Изменить ссылку 'Условия'", callback_data="admin_edit_terms")
     builder.button(text="🔒 Изменить ссылку 'Политика'", callback_data="admin_edit_privacy")
+    builder.button(text="🆘 Изменить ссылку 'Поддержка'", callback_data="admin_edit_support_user")
+    builder.button(text="🆘 Изменить текст 'Поддержка'", callback_data="admin_edit_support_text")
     builder.button(text="⬅️ Выйти из админ. режима", callback_data="back_to_main_menu")
     builder.adjust(1)
     return builder.as_markup()
@@ -45,6 +49,27 @@ def create_about_keyboard(terms_url: str, privacy_url: str) -> InlineKeyboardMar
     builder = InlineKeyboardBuilder()
     builder.button(text="📄 Условия использования", url=terms_url)
     builder.button(text="🔒 Политика конфиденциальности", url=privacy_url)
+    builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
+    builder.adjust(1)
+    return builder.as_markup()
+
+def create_about_keyboard_terms(terms_url: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📄 Условия использования", url=terms_url)
+    builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
+    builder.adjust(1)
+    return builder.as_markup()
+
+def create_about_keyboard_privacy(privacy_url: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔒 Политика конфиденциальности", url=privacy_url)
+    builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
+    builder.adjust(1)
+    return builder.as_markup()
+
+def create_support_keyboard(support_user: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🆘 Написать в поддержку", url=support_user)
     builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
     builder.adjust(1)
     return builder.as_markup()
