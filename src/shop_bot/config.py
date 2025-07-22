@@ -3,10 +3,10 @@ import os
 server_name = os.getenv("SERVER_NAME")
 
 PLANS = {
-    "buy_1_month": (f"{server_name} 1 месяц", "50.00", 1),
-    "buy_3_months": (f"{server_name} 3 месяца", "135.00", 3),
-    "buy_6_months": (f"{server_name} 6 месяцев", "240.00", 6),
-    "buy_12_months": (f"{server_name} 12 месяцев", "450.00", 12),
+    "buy_1_month": (f"Подписка 1 месяц", "50.00", 1),
+    "buy_3_months": (f"Подписка 3 месяца", "135.00", 3),
+    "buy_6_months": (f"Подписка 6 месяцев", "240.00", 6),
+    "buy_12_months": (f"Подписка 12 месяцев", "450.00", 12),
 }
 
 WELCOME_MESSAGE = "Здесь вы можете приобрести быстрый и надежный VPN."
