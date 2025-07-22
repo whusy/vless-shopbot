@@ -374,7 +374,7 @@ async def create_yookassa_payment_handler(callback: types.CallbackQuery):
         payment = Payment.create({
             "amount": {"value": price_rub, "currency": "RUB"},
             "confirmation": {"type": "redirect", "return_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}"},
-            "capture": True, "description": f"Оплата подписки ({name})",
+            "capture": True, "description": f"Оплата подписки ({months} месяцев)",
             "metadata": {
                 "user_id": user_id, "months": months, "price": price_rub, 
                 "action": action, "key_id": key_id,
@@ -411,7 +411,7 @@ async def create_crypto_payment_handler(callback: types.CallbackQuery):
         async with aiohttp.ClientSession() as session:
             payload = {
                 "amount": float(price_rub), "currency": "RUB", "order_id": str(uuid.uuid4()),
-                "description": f"Оплата подписки ({name})",
+                "description": f"Оплата подписки ({months} месяцев)",
                 "metadata": {
                     "user_id": user_id, "months": months, "price": price_rub, 
                     "action": action, "key_id": key_id,
