@@ -411,7 +411,7 @@ async def create_crypto_payment_handler(callback: types.CallbackQuery):
         async with aiohttp.ClientSession() as session:
             payload = {
                 "amount": float(price_rub), "currency": "RUB", "order_id": str(uuid.uuid4()),
-                "description": f"Оплата подписки {MAIN_REMARK} ({name})",
+                "description": f"Оплата подписки ({name})",
                 "metadata": {
                     "user_id": user_id, "months": months, "price": price_rub, 
                     "action": action, "key_id": key_id,
