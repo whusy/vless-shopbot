@@ -415,10 +415,16 @@ async def create_crypto_payment_handler(callback: types.CallbackQuery):
     message_id_to_delete = callback.message.message_id
     
     try:
+        if months == 1:
+            description = f"Оплата подписки на 1 месяц"
+        elif months <= 5:
+            description = f"Оплата подписки на {months} месяца"
+        else:
+            description = f"Оплата подписки на {months} месяцев"
         async with aiohttp.ClientSession() as session:
             payload = {
                 "amount": float(price_rub), "currency": "RUB", "order_id": str(uuid.uuid4()),
-                "description": f"Оплата подписки ({months} месяцев)",
+                "description": description,
                 "metadata": {
                     "user_id": user_id, "months": months, "price": price_rub, 
                     "action": action, "key_id": key_id,
