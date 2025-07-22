@@ -46,8 +46,8 @@ async def show_main_menu(message: types.Message, edit_message: bool = False):
     
     trial_available = not (user_db_data and user_db_data.get('trial_used'))
     is_admin = str(user_id) == ADMIN_ID
-    
-    text = "🏠 **Главное меню**\n\nВыберите действие:"
+
+    text = "🏠 <b>Главное меню</b>\n\nВыберите действие:"
     keyboard = keyboards.create_main_menu_keyboard(user_keys, trial_available, is_admin)
     
     if edit_message:
