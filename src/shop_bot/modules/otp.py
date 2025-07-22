@@ -6,7 +6,7 @@ import logging
 dotenv.load_dotenv()
 logger = logging.getLogger(__name__)
 
-secret_key = os.getenv("TOPT")
+secret_key = os.getenv("TOTP")
 
 def getTOTP():
     try:
@@ -14,7 +14,7 @@ def getTOTP():
         return totp.now()
     except Exception as e:
         logger.error(f"Error creating TOTP object: {e}", exc_info=True)
-        logger.warning("Ensure your TOPT secret key is a valid Base32 encoded string in .env file.")
+        logger.warning("Ensure your TOTP secret key is a valid Base32 encoded string in .env file.")
         return None
     
 if __name__ == "__main__":

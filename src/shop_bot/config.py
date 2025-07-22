@@ -1,8 +1,12 @@
+import os
+
+server_name = os.getenv("SERVER_NAME")
+
 PLANS = {
-    "buy_1_month": ("1 месяц", "50.00", 1),
-    "buy_3_months": ("3 месяца", "135.00", 3),
-    "buy_6_months": ("6 месяцев", "240.00", 6),
-    "buy_12_months": ("12 месяцев", "450.00", 12),
+    "buy_1_month": (f"{server_name} 1 месяц", "50.00", 1),
+    "buy_3_months": (f"{server_name} 3 месяца", "135.00", 3),
+    "buy_6_months": (f"{server_name} 6 месяцев", "240.00", 6),
+    "buy_12_months": (f"{server_name} 12 месяцев", "450.00", 12),
 }
 
 WELCOME_MESSAGE = "Здесь вы можете приобрести быстрый и надежный VPN."
@@ -45,7 +49,6 @@ def get_key_info_text(key_number, expiry_date, created_date, connection_string):
     )
 
 def get_purchase_success_text(action: str, key_number: int, expiry_date, connection_string: str):
-    """Шаблон для сообщения после успешной покупки/продления."""
     
     action_text = "обновлен" if action == "extend" else "готов"
     expiry_formatted = expiry_date.strftime('%d.%m.%Y в %H:%M')

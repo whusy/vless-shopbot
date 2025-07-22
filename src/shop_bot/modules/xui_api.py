@@ -13,25 +13,38 @@ logger = logging.getLogger(__name__)
 xui_host = os.getenv("XUI_HOST")
 xui_username = os.getenv("XUI_USERNAME")
 xui_password = os.getenv("XUI_PASSWORD")
-MAIN_REMARK = "NNVPN"
+totp = os.getenv("XUI_TOTP")
+should_use_totp = bool(totp)
+MAIN_REMARK = os.getenv("MAIN_REMARK")
+port = os.getenv("XUI_PORT")
 
 def login() -> tuple[Api | None, Inbound | None]:
+    api = None
+    target_inbound = None
+
     try:
-        otp_code = otp.getTOTP()
-        if not otp_code:
-            raise ValueError("Failed to generate OTP code.")
-        api = Api.from_env()
-        api.login(otp_code)
-        inbounds: list[Inbound] = api.inbound.get_list()
-        target_inbound = None
-        for inbound in inbounds:
-            if inbound.remark == MAIN_REMARK:
-                target_inbound = inbound
-                break
-        if target_inbound is None:
-            logger.error(f"No inbound found with remark '{MAIN_REMARK}'")
-            return api, None
-        return api, target_inbound
+        if should_use_totp:
+            api = Api.from_env()
+            print(should_use_totp)
+            print(f"DEBUG: Value of 'TOTP_SECRET': {os.getenv('TOTP')}")
+            api.login()
+        else:
+            api = Api.from_env()
+            otp_code = otp.getTOTP()
+            if not otp_code:
+                raise ValueError("Failed to generate OTP code.")
+            logger.info(f"Using OTP code: {otp_code}")
+            api.login(otp_code)
+            
+            inbounds: list[Inbound] = api.inbound.get_list()
+            for inbound in inbounds:
+                if inbound.remark == MAIN_REMARK:
+                    target_inbound = inbound
+                    break
+            if target_inbound is None:
+                logger.error(f"No inbound found with remark '{MAIN_REMARK}'")
+                return api, None
+            return api, target_inbound
     except Exception as e:
         logger.error(f"Login or inbound retrieval failed: {e}", exc_info=True)
         return None, None
@@ -49,7 +62,7 @@ def get_connection_string(inbound: Inbound, user_uuid: str, user_email: str) -> 
     short_id = short_ids[0]
     
     connection_string = (
-        f"vless://{user_uuid}@germany.evansvl.ru:2040"
+        f"vless://{user_uuid}@{website_name}:{port}"
         f"?type=tcp&security=reality&pbk={public_key}&fp=random&sni={website_name}"
         f"&sid={short_id}&spx=%2F#{MAIN_REMARK}-{user_email}"
     )

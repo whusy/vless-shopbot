@@ -197,8 +197,7 @@ async def about_handler(callback: types.CallbackQuery):
         )
     else:
         await callback.message.edit_text(
-            support_text,
-            "Для связи с поддержкой используйте кнопку ниже.",
+            support_text + "\n\n" + "Для связи с поддержкой используйте кнопку ниже.",
             reply_markup=keyboards.create_support_keyboard(support_user)
         )
 
@@ -375,7 +374,7 @@ async def create_yookassa_payment_handler(callback: types.CallbackQuery):
         payment = Payment.create({
             "amount": {"value": price_rub, "currency": "RUB"},
             "confirmation": {"type": "redirect", "return_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}"},
-            "capture": True, "description": f"Оплата подписки {MAIN_REMARK} ({name})",
+            "capture": True, "description": f"Оплата подписки ({name})",
             "metadata": {
                 "user_id": user_id, "months": months, "price": price_rub, 
                 "action": action, "key_id": key_id,
