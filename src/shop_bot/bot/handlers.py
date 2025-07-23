@@ -333,7 +333,7 @@ async def show_instruction_handler(callback: types.CallbackQuery):
         "   - <b>Linux:</b> [Nekoray 3.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
         "3. Посмотреть и полностью прочитать туториал по использованию ключей можно на этой странице: https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client\n"
     )
-    await callback.message.edit_text(instruction_text, reply_markup=keyboards.create_back_to_key_keyboard(key_id))
+    await callback.message.edit_text(instruction_text, parse_mode=types.ParseMode.HTML, reply_markup=keyboards.create_back_to_key_keyboard(key_id))
 
 @user_router.callback_query(F.data == "buy_new_key")
 async def buy_new_key_handler(callback: types.CallbackQuery):
