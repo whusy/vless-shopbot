@@ -32,7 +32,7 @@ cd 3x-ui-shop
 ```
 
 2. Настройте переменные окружения:
-Откройте файл .env.example для редактирования:
+   Откройте файл .env.example для редактирования:
 
 ```bash
 nano .env.example
@@ -77,7 +77,7 @@ server {
     # Укажите правильные пути к вашим SSL-сертификатам
     ssl_certificate /etc/letsencrypt/live/<your_domain.com>/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/<your_domain.com>/privkey.pem;
-    
+
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
 
@@ -87,7 +87,7 @@ server {
     location /yookassa-webhook {
         # ЗАМЕНИТЕ 1488 на порт, который вы указали в .env для бота
         proxy_pass http://127.0.0.1:1488;
-        
+
         # Стандартные заголовки для корректной работы вебхуков
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -143,7 +143,7 @@ docker compose up -d
 
 Текст поддержки (необязательно)
 
-## 💳 Настройка YooKassa
+## 💳 Настройка YooKassa / СБП
 
 Для приема платежей получите официальный токен от YooKassa.
 
