@@ -18,6 +18,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.enums import ChatType, ParseMode
+from aiogram.utils.markdown import hlink, bold
 
 from shop_bot.bot import keyboards
 from shop_bot.modules import xui_api
@@ -323,17 +324,24 @@ async def show_qr_handler(callback: types.CallbackQuery):
 async def show_instruction_handler(callback: types.CallbackQuery):
     await callback.answer()
     key_id = int(callback.data.split("_")[2])
+
     instruction_text = (
-        "<b>Как подключиться?</b>\n\n"
-        "1. Скопируйте ключ подключения (vless://...).\n"
+        "*Как подключиться?*\n\n"
+        "1. Скопируйте ключ подключения `vless://...`\\.\n"
         "2. Скачайте приложение, совместимое с Xray/V2Ray:\n"
-        "   - <b>Android:</b> [V2RayTUN](https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru)\n"
-        "   - <b>iOS:</b> [V2RayTUN](https://apps.apple.com/us/app/v2raytun/id6476628951?platform=iphone)\n"
-        "   - <b>Windows:</b> [Nekoray 3.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
-        "   - <b>Linux:</b> [Nekoray 3.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
-        "3. Посмотреть и полностью прочитать туториал по использованию ключей можно на этой странице: https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client\n"
+        "   - *Android:* [V2RayTUN](https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru)\n"
+        "   - *iOS:* [V2RayTUN](https://apps.apple.com/us/app/v2raytun/id6476628951?platform=iphone)\n"
+        "   - *Windows:* [Nekoray 3\\.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
+        "   - *Linux:* [Nekoray 3\\.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
+        "3. Посмотреть и полностью прочитать туториал по использованию ключей можно на [этой странице](https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client)\\.\n"
     )
-    await callback.message.edit_text(instruction_text, reply_markup=keyboards.create_back_to_key_keyboard(key_id), parse_mode=ParseMode.MARKDOWN_V2)
+    
+    await callback.message.edit_text(
+        instruction_text,
+        reply_markup=keyboards.create_back_to_key_keyboard(key_id),
+        parse_mode=ParseMode.MARKDOWN_V2,
+        disable_web_page_preview=True
+    )
 
 @user_router.callback_query(F.data == "buy_new_key")
 async def buy_new_key_handler(callback: types.CallbackQuery):
