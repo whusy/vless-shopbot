@@ -8,8 +8,6 @@ import aiohttp
 import os
 import hashlib
 import json
-from decimal import Decimal, ROUND_HALF_UP
-import requests
 
 from aiogram import Bot, Router, F, types, html
 from aiogram.filters import Command
@@ -17,7 +15,6 @@ from aiogram.types import BufferedInputFile
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.enums import ChatType, ParseMode
 
 from shop_bot.bot import keyboards
 from shop_bot.modules import xui_api
@@ -27,9 +24,8 @@ from shop_bot.data_manager.database import (
     update_key_info, set_trial_used, set_terms_agreed, get_setting
 )
 from shop_bot.config import (
-    PLANS, CHOOSE_PLAN_MESSAGE, WELCOME_MESSAGE, 
-    get_profile_text, get_vpn_active_text, VPN_INACTIVE_TEXT, VPN_NO_DATA_TEXT,
-    get_key_info_text, CHOOSE_PAYMENT_METHOD_MESSAGE, get_purchase_success_text, ABOUT_TEXT, TERMS_URL, PRIVACY_URL, SUPPORT_USER, SUPPORT_TEXT, CHANNEL_URL
+    PLANS, get_profile_text, get_vpn_active_text, VPN_INACTIVE_TEXT, VPN_NO_DATA_TEXT,
+    get_key_info_text, CHOOSE_PAYMENT_METHOD_MESSAGE, get_purchase_success_text, ABOUT_TEXT, TERMS_URL, PRIVACY_URL, SUPPORT_USER, SUPPORT_TEXT
 )
 
 TELEGRAM_BOT_USERNAME = None
