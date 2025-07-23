@@ -327,12 +327,11 @@ async def show_instruction_handler(callback: types.CallbackQuery):
         "<b>Как подключиться?</b>\n\n"
         "1. Скопируйте ключ подключения (vless://...).\n"
         "2. Скачайте приложение, совместимое с Xray/V2Ray:\n"
-        "   - <b>Android:</b> V2RayNG, FoXray\n"
-        "   - <b>iOS:</b> FoXray, Streisand, Shadowrocket\n"
-        "   - <b>Windows:</b> V2RayN\n"
-        "   - <b>macOS:</b> V2RayU, FoXray\n"
-        "3. В приложении нажмите 'Импорт из буфера обмена' или '+' и вставьте ключ.\n"
-        "4. Запустите VPN-соединение!"
+        "   - <b>Android:</b> [V2RayTUN](https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru)\n"
+        "   - <b>iOS:</b> [V2RayTUN](https://apps.apple.com/us/app/v2raytun/id6476628951?platform=iphone)\n"
+        "   - <b>Windows:</b> [Nekoray 3.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
+        "   - <b>Linux:</b> [Nekoray 3.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
+        "3. Посмотреть и полностью прочитать туториал по использованию ключей можно на этой странице: https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client\n"
     )
     await callback.message.edit_text(instruction_text, reply_markup=keyboards.create_back_to_key_keyboard(key_id))
 
