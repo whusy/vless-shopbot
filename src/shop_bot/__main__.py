@@ -34,15 +34,13 @@ def main():
     yookassa_shop_id = os.getenv("YOOKASSA_SHOP_ID")
     yookassa_secret_key = os.getenv("YOOKASSA_SECRET_KEY")
     crypto_api_key = os.getenv("CRYPTO_API_KEY")
+    crypto_merchant_id = os.getenv("CRYPTO_MERCHANT_ID")
 
     yookassa_enabled = bool(yookassa_shop_id and yookassa_shop_id.strip() and yookassa_secret_key and yookassa_secret_key.strip())
-    crypto_enabled = bool(crypto_api_key and crypto_api_key.strip())
+    crypto_enabled = bool(crypto_api_key and crypto_api_key.strip() and crypto_merchant_id and crypto_merchant_id.strip())
 
     if not TELEGRAM_TOKEN or not TELEGRAM_BOT_USERNAME:
         raise ValueError("Необходимо установить TELEGRAM_BOT_TOKEN и TELEGRAM_BOT_USERNAME")
-
-    yookassa_enabled = bool(yookassa_shop_id and yookassa_shop_id.strip() and yookassa_secret_key and yookassa_secret_key.strip())
-    crypto_enabled = bool(crypto_api_key and crypto_api_key.strip())
 
     payment_methods = {
         "yookassa": yookassa_enabled,
@@ -66,6 +64,7 @@ def main():
     handlers.PLANS = PLANS
     handlers.TELEGRAM_BOT_USERNAME = TELEGRAM_BOT_USERNAME
     handlers.CRYPTO_API_KEY = crypto_api_key
+    handlers.CRYPTO_MERCHANT_ID = crypto_merchant_id
     handlers.PAYMENT_METHODS = payment_methods
     handlers.ADMIN_TELEGRAM_ID = ADMIN_TELEGRAM_ID
     

@@ -23,7 +23,6 @@ def create_webhook_app(bot, payment_processor):
 
     @flask_app.route('/crypto-webhook', methods=['POST'])
     def crypto_webhook_handler():
-        """Принимает вебхуки от крипто-процессинга."""
         try:
             data = request.json
             logger.info(f"Crypto webhook received: {data}")

@@ -6,6 +6,10 @@ import qrcode
 from yookassa import Payment
 import aiohttp
 import os
+import hashlib
+import json
+from decimal import Decimal, ROUND_HALF_UP
+import requests
 
 from aiogram import Bot, Router, F, types, html
 from aiogram.filters import Command
@@ -30,6 +34,7 @@ from shop_bot.config import (
 
 TELEGRAM_BOT_USERNAME = None
 CRYPTO_API_KEY = None
+CRYPTO_MERCHANT_ID = None
 PAYMENT_METHODS = None
 PLANS = None
 ADMIN_ID = os.getenv("ADMIN_TELEGRAM_ID")
@@ -396,15 +401,15 @@ async def create_yookassa_payment_handler(callback: types.CallbackQuery):
         logger.error(f"Failed to create YooKassa payment: {e}", exc_info=True)
         await callback.message.answer("Не удалось создать ссылку на оплату.")
 
-@user_router.callback_query(F.data.startswith("pay_crypto_"))
-async def create_crypto_payment_handler(callback: types.CallbackQuery):
-    await callback.answer("Создаю счет для оплаты в криптовалюте...")
+@user_router.callback_query(F.data.startswith("pay_sbp_"))
+async def create_sbp_payment_handler(callback: types.CallbackQuery):
+    await callback.answer("Создаю ссылку на оплату...")
     
     parts = callback.data.split("_")[2:]
     plan_id = "_".join(parts[:-2])
     action = parts[-2]
     key_id = int(parts[-1])
-
+    
     if plan_id not in PLANS:
         await callback.message.answer("Произошла ошибка при выборе тарифа.")
         return
@@ -421,34 +426,146 @@ async def create_crypto_payment_handler(callback: types.CallbackQuery):
             description = f"Оплата подписки на {months} месяца"
         else:
             description = f"Оплата подписки на {months} месяцев"
+
+        payment = Payment.create({
+            "amount": {"value": price_rub, "currency": "RUB"},
+            "payment_method_data": {"type": "sbp"},
+            "confirmation": {"type": "redirect", "return_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}"},
+            "capture": True, "description": description,
+            "metadata": {
+                "user_id": user_id, "months": months, "price": price_rub, 
+                "action": action, "key_id": key_id,
+                "chat_id": chat_id_to_delete, "message_id": message_id_to_delete
+            }
+        }, uuid.uuid4())
+        await callback.message.edit_text(
+            "Нажмите на кнопку ниже для оплаты:",
+            reply_markup=keyboards.create_payment_keyboard(payment.confirmation.confirmation_url)
+        )
+    except Exception as e:
+        logger.error(f"Failed to create SBP payment: {e}", exc_info=True)
+        await callback.message.answer("Не удалось создать ссылку на оплату.")
+
+import hashlib
+
+def create_heleket_signature(payload: dict, api_key: str) -> str:
+    """
+    Создает сигнатуру для API Heleket на основе рабочего примера.
+    Использует жестко заданный, отсортированный список ключей для 100% надежности.
+    """
+    # 1. Жестко заданный список ключей в алфавитном порядке, как в рабочем примере.
+    # Это гарантирует правильный порядок и исключает лишние поля вроде 'metadata'.
+    keys_for_sign = [
+        'amount', 
+        'callback_url', 
+        'currency', 
+        'description', 
+        'fail_url', 
+        'merchant_id', 
+        'order_id', 
+        'success_url'
+    ]
+    
+    # 2. Собираем список значений в правильном порядке.
+    # Используем простое преобразование в строку str(), как в примере.
+    values = [str(payload[key]) for key in keys_for_sign]
+    
+    # 3. Соединяем значения через двоеточие.
+    sign_string = ":".join(values)
+    
+    # 4. Добавляем API-ключ и хэшируем.
+    string_to_hash = sign_string + api_key
+
+    # Отладка, чтобы убедиться, что все верно
+    print(f"DEBUG [Final]: String for hashing: '{string_to_hash}'")
+    
+    return hashlib.sha256(string_to_hash.encode('utf-8')).hexdigest()
+
+@user_router.callback_query(F.data.startswith("pay_crypto_"))
+async def create_crypto_payment_handler(callback: types.CallbackQuery):
+    await callback.answer("Создаю счет для оплаты в криптовалюте...")
+    
+    # Ваша логика парсинга callback.data остается без изменений
+    parts = callback.data.split("_")[2:]
+    plan_id = "_".join(parts[:-2])
+    action = parts[-2]
+    key_id = int(parts[-1])
+
+    if plan_id not in PLANS:
+        await callback.message.answer("Произошла ошибка при выборе тарифа.")
+        return
+
+    name, price_rub, months = PLANS[plan_id]
+    user_id = callback.from_user.id
+    
+    # Получаем URL для вебхуков и имя бота из переменных окружения
+    crypto_webhook_url = os.getenv("CRYPTO_WEBHOOK_URL")
+    bot_username = os.getenv("TELEGRAM_BOT_USERNAME") # Убедитесь, что эта переменная есть
+
+    try:
+        if months == 1:
+            description = f"Оплата подписки на 1 месяц"
+        elif months <= 4:
+            description = f"Оплата подписки на {months} месяца"
+        else:
+            description = f"Оплата подписки на {months} месяцев"
+            
         async with aiohttp.ClientSession() as session:
+            # 1. Формируем payload со всеми необходимыми полями
             payload = {
-                "amount": float(price_rub), "currency": "RUB", "order_id": str(uuid.uuid4()),
+                # ---- Поля, участвующие в подписи ----
+                "merchant_id": CRYPTO_MERCHANT_ID,
+                "amount": float(price_rub), # Рабочий пример использует float, потом конвертирует в str
+                "currency": "RUB",
+                "order_id": str(uuid.uuid4()),
                 "description": description,
+                "callback_url": crypto_webhook_url,
+                "success_url": f"https://t.me/{bot_username}",
+                "fail_url": f"https://t.me/{bot_username}",
+                # ---- Поля, НЕ участвующие в подписи ----
                 "metadata": {
                     "user_id": user_id, "months": months, "price": price_rub, 
                     "action": action, "key_id": key_id,
-                    "chat_id": chat_id_to_delete, "message_id": message_id_to_delete
+                    "chat_id": callback.message.chat.id, 
+                    "message_id": callback.message.message_id
                 }
             }
-            headers = {"Authorization": f"Bearer {CRYPTO_API_KEY}"}
-            api_url = "https://api.telepet.io/v1/invoices"
+
+            # 2. Создаем подпись с помощью нашей новой, надежной функции
+            signature = create_heleket_signature(payload, CRYPTO_API_KEY)
+
+            # 3. Добавляем подпись в payload для отправки
+            payload["sign"] = signature
+            
+            headers = {"Content-Type": "application/json"}
+            api_url = "https://api.heleket.com/v1/payment"
+            
+            # Отладочный вывод финального payload перед отправкой
+            # logger.info(f"Sending payload to Heleket: {payload}")
             
             async with session.post(api_url, json=payload, headers=headers) as response:
+                response_text = await response.text()
+                
                 if response.status == 201:
-                    data = await response.json()
+                    data = json.loads(response_text)
                     payment_url = data.get("pay_url")
+                    
+                    if not payment_url:
+                        logger.error(f"Heleket API success, but no pay_url in response: {response_text}")
+                        await callback.message.edit_text("❌ Ошибка получения ссылки на оплату.")
+                        return
+
                     await callback.message.edit_text(
-                        "Нажмите на кнопку ниже для оплаты криптовалютой:",
+                        "✅ Счет создан!\n\nНажмите на кнопку ниже для оплаты криптовалютой:",
                         reply_markup=keyboards.create_payment_keyboard(payment_url)
                     )
                 else:
-                    error_text = await response.text()
-                    logger.error(f"Crypto API error: {response.status} - {error_text}")
+                    logger.error(f"Heleket API error: {response.status} - {response_text}")
                     await callback.message.edit_text("❌ Не удалось создать счет для оплаты криптовалютой.")
+
     except Exception as e:
         logger.error(f"Exception during crypto payment creation: {e}", exc_info=True)
-        await callback.message.edit_text("❌ Произошла ошибка. Попробуйте позже.")
+        await callback.message.edit_text("❌ Произошла критическая ошибка. Попробуйте позже.")
 
 async def process_successful_payment(bot: Bot, metadata: dict):
     user_id, months, price, action, key_id = map(metadata.get, ['user_id', 'months', 'price', 'action', 'key_id'])
