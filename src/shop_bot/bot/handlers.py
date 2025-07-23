@@ -401,53 +401,6 @@ async def create_yookassa_payment_handler(callback: types.CallbackQuery):
         logger.error(f"Failed to create YooKassa payment: {e}", exc_info=True)
         await callback.message.answer("Не удалось создать ссылку на оплату.")
 
-@user_router.callback_query(F.data.startswith("pay_sbp_"))
-async def create_sbp_payment_handler(callback: types.CallbackQuery):
-    await callback.answer("Создаю ссылку на оплату...")
-    
-    parts = callback.data.split("_")[2:]
-    plan_id = "_".join(parts[:-2])
-    action = parts[-2]
-    key_id = int(parts[-1])
-    
-    if plan_id not in PLANS:
-        await callback.message.answer("Произошла ошибка при выборе тарифа.")
-        return
-
-    name, price_rub, months = PLANS[plan_id]
-    user_id = callback.from_user.id
-    chat_id_to_delete = callback.message.chat.id
-    message_id_to_delete = callback.message.message_id
-    
-    try:
-        if months == 1:
-            description = f"Оплата подписки на 1 месяц"
-        elif months <= 5:
-            description = f"Оплата подписки на {months} месяца"
-        else:
-            description = f"Оплата подписки на {months} месяцев"
-
-        payment = Payment.create({
-            "amount": {"value": price_rub, "currency": "RUB"},
-            "payment_method_data": {"type": "sbp"},
-            "confirmation": {"type": "redirect", "return_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}"},
-            "capture": True, "description": description,
-            "metadata": {
-                "user_id": user_id, "months": months, "price": price_rub, 
-                "action": action, "key_id": key_id,
-                "chat_id": chat_id_to_delete, "message_id": message_id_to_delete
-            }
-        }, uuid.uuid4())
-        await callback.message.edit_text(
-            "Нажмите на кнопку ниже для оплаты:",
-            reply_markup=keyboards.create_payment_keyboard(payment.confirmation.confirmation_url)
-        )
-    except Exception as e:
-        logger.error(f"Failed to create SBP payment: {e}", exc_info=True)
-        await callback.message.answer("Не удалось создать ссылку на оплату.")
-
-import hashlib
-
 def create_heleket_signature(payload: dict, api_key: str) -> str:
     """
     Создает сигнатуру для API Heleket на основе рабочего примера.

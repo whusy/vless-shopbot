@@ -90,11 +90,8 @@ def create_plans_keyboard(plans: dict, action: str, key_id: int = 0) -> InlineKe
 def create_payment_method_keyboard(payment_methods: dict, plan_id: str, action: str, key_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if payment_methods.get("yookassa"):
-        if os.getenv("SBP_ENABLED") == "true".lower():
-            callback_data_sbp = f"pay_sbp_{plan_id}_{action}_{key_id}"
-            builder.button(text="🏦 СБП", callback_data=callback_data_sbp)
         callback_data_yookassa = f"pay_yookassa_{plan_id}_{action}_{key_id}"
-        builder.button(text="💳 Банковская карта / SberPay", callback_data=callback_data_yookassa)
+        builder.button(text="💳 Банковская карта / СБП", callback_data=callback_data_yookassa)
     if payment_methods.get("crypto"):
         callback_data = f"pay_crypto_{plan_id}_{action}_{key_id}"
         builder.button(text="💎 Криптовалюта", callback_data=callback_data)
