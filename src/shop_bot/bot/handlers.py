@@ -18,7 +18,6 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.enums import ChatType, ParseMode
-from aiogram.utils.markdown import hlink, bold, text
 
 from shop_bot.bot import keyboards
 from shop_bot.modules import xui_api
@@ -323,26 +322,21 @@ async def show_qr_handler(callback: types.CallbackQuery):
 @user_router.callback_query(F.data.startswith("show_instruction_"))
 async def show_instruction_handler(callback: types.CallbackQuery):
     await callback.answer()
-    key_id = int(callback.data.split("_"))
+    key_id = int(callback.data.split("_")[2])
 
-    instruction_parts = [
-        bold("Как подключиться?"),
-        "\n",
-        "1. Скопируйте ключ подключения (vless://...).",
-        "2. Скачайте приложение, совместимое с Xray/V2Ray:",
-        text("   - ", bold("Android:"), " ", hlink("V2RayTUN", "https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru")),
-        text("   - ", bold("iOS:"), " ", hlink("V2RayTUN", "https://apps.apple.com/us/app/v2raytun/id6476628951?platform=iphone")),
-        text("   - ", bold("Windows:"), " ", hlink("Nekoray 3.26", "https://github.com/MatsuriDayo/nekoray/releases/tag/3.26")),
-        text("   - ", bold("Linux:"), " ", hlink("Nekoray 3.26", "https://github.com/MatsuriDayo/nekoray/releases/tag/3.26")),
-        text("3. Посмотреть и полностью прочитать туториал по использованию ключей можно на ", hlink("этой странице", "https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client"), ".")
-    ]
-
-    instruction_text = "\n".join(str(p) for p in instruction_parts)
-
+    instruction_text = (
+        "<b>Как подключиться?</b>\n\n"
+        "1. Скопируйте ключ подключения `vless://...`\\.\n"
+        "2. Скачайте приложение, совместимое с Xray/V2Ray:\n"
+        "   - <b>Android:</b> V2RayTUN https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru\n"
+        "   - <b>iOS:</b> V2RayTUN https://apps.apple.com/us/app/v2raytun/id6476628951?platform=iphone\n"
+        "   - <b>Windows/Linux:</b> Nekoray 3.26 https://github.com/MatsuriDayo/nekoray/releases/tag/3.26\n"
+        "3. Посмотреть и полностью прочитать туториал по использованию ключей можно на: https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client.\n"
+    )
+    
     await callback.message.edit_text(
         instruction_text,
         reply_markup=keyboards.create_back_to_key_keyboard(key_id),
-        parse_mode=ParseMode.MARKDOWN_V2,
         disable_web_page_preview=True
     )
 
