@@ -1,6 +1,6 @@
 [project]
 name = "3x-ui-shop"
-version = "1.0.0"
+version = "1.0.3"
 description = "Бот для автоматической продажи VLESS VPN из панели 3x-ui"
 dependencies = [
     "aiogram==3.21.0",
