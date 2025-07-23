@@ -17,7 +17,7 @@ from aiogram.types import BufferedInputFile
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.enums import ChatType
+from aiogram.enums import ChatType, ParseMode
 
 from shop_bot.bot import keyboards
 from shop_bot.modules import xui_api
@@ -333,7 +333,7 @@ async def show_instruction_handler(callback: types.CallbackQuery):
         "   - <b>Linux:</b> [Nekoray 3.26](https://github.com/MatsuriDayo/nekoray/releases/tag/3.26)\n"
         "3. Посмотреть и полностью прочитать туториал по использованию ключей можно на этой странице: https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client\n"
     )
-    await callback.message.edit_text(instruction_text, reply_markup=keyboards.create_back_to_key_keyboard(key_id))
+    await callback.message.edit_text(instruction_text, reply_markup=keyboards.create_back_to_key_keyboard(key_id), parse_mode=ParseMode.MARKDOWN_V2)
 
 @user_router.callback_query(F.data == "buy_new_key")
 async def buy_new_key_handler(callback: types.CallbackQuery):
