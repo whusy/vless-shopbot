@@ -1,6 +1,10 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
+import os
+import dotenv
+
+dotenv.load_dotenv()
 
 main_reply_keyboard = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="🏠 Главное меню")]],
@@ -86,8 +90,9 @@ def create_plans_keyboard(plans: dict, action: str, key_id: int = 0) -> InlineKe
 def create_payment_method_keyboard(payment_methods: dict, plan_id: str, action: str, key_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if payment_methods.get("yookassa"):
-        callback_data_sbp = f"pay_sbp_{plan_id}_{action}_{key_id}"
-        builder.button(text="🏦 СБП", callback_data=callback_data_sbp)
+        if os.getenv("SBP_ENABLED") == "true":
+            callback_data_sbp = f"pay_sbp_{plan_id}_{action}_{key_id}"
+            builder.button(text="🏦 СБП", callback_data=callback_data_sbp)
         callback_data_yookassa = f"pay_yookassa_{plan_id}_{action}_{key_id}"
         builder.button(text="💳 Банковская карта / SberPay", callback_data=callback_data_yookassa)
     if payment_methods.get("crypto"):
