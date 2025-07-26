@@ -1,6 +1,6 @@
 # 3x-ui-shop | Telegram-бот для продажи VLESS-конфигов
 
-![alt text](https://img.shields.io/badge/version-1.0.0-blue)
+![alt text](https://img.shields.io/badge/version-1.0.2-blue)
 ![alt text](https://img.shields.io/badge/language-Python-green)
 ![alt text](https://img.shields.io/github/issues/evansvl/3x-ui-shop)
 
@@ -85,7 +85,6 @@ server {
     # Этот блок говорит Nginx, что все запросы на /yookassa-webhook
     # нужно перенаправлять боту.
     location /yookassa-webhook {
-        # ЗАМЕНИТЕ 1488 на порт, который вы указали в .env для бота
         proxy_pass http://127.0.0.1:1488;
 
         # Стандартные заголовки для корректной работы вебхуков
