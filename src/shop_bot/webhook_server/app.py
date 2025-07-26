@@ -37,5 +37,21 @@ def create_webhook_app(bot, payment_processor):
         except Exception as e:
             logger.error(f"Error in crypto webhook handler: {e}")
             return 'Error', 500
+        
+    @flask_app.route('/cryptobot-webhook', methods=['GET'])
+    def crypto_webhook_get_handler():
+        try:
+            data = request.args
+            logger.info(f"Crypto bot webhook received: {data}")
+
+            if data.get("status") == "paid":
+                metadata = data.to_dict()
+                loop = current_app.config['EVENT_LOOP']
+                asyncio.run_coroutine_threadsafe(payment_processor(bot, metadata), loop)
+            
+            return 'OK', 200
+        except Exception as e:
+            logger.error(f"Error in crypto bot webhook handler: {e}")
+            return 'Error', 500
 
     return flask_app

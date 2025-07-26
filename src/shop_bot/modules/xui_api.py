@@ -58,12 +58,14 @@ def get_connection_string(inbound: Inbound, user_uuid: str, user_email: str) -> 
     short_ids = inbound.stream_settings.reality_settings.get("shortIds")
     if not all([public_key, server_names, short_ids]): return None
     
+    fp = os.getenv("FP")
+    sni = os.getenv("SNI")
     website_name = server_names[0]
     short_id = short_ids[0]
     
     connection_string = (
         f"vless://{user_uuid}@{website_name}:{port}"
-        f"?type=tcp&security=reality&pbk={public_key}&fp=random&sni={website_name}"
+        f"?type=tcp&security=reality&pbk={public_key}&fp={fp}&sni={sni}"
         f"&sid={short_id}&spx=%2F#{MAIN_REMARK}-{user_email}"
     )
     return connection_string
