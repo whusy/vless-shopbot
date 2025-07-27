@@ -1,6 +1,6 @@
 # 3x-ui-shop | Telegram-бот для продажи VLESS-конфигов
 
-![alt text](https://img.shields.io/badge/version-1.0.2-blue)
+![alt text](https://img.shields.io/badge/version-1.0.3-blue)
 ![alt text](https://img.shields.io/badge/language-Python-green)
 ![alt text](https://img.shields.io/github/issues/evansvl/3x-ui-shop)
 
