@@ -3,6 +3,7 @@ import uuid
 import dotenv
 from datetime import datetime, timedelta
 import logging
+from urllib.parse import urlparse
 
 from py3xui import Api, Client, Inbound
 from . import otp
@@ -60,11 +61,12 @@ def get_connection_string(inbound: Inbound, user_uuid: str, user_email: str) -> 
     
     fp = os.getenv("FP")
     sni = os.getenv("SNI")
-    website_name = server_names[0]
+    website_name = os.getenv("XUI_HOST")
+    parsed_url = urlparse(website_name)
     short_id = short_ids[0]
     
     connection_string = (
-        f"vless://{user_uuid}@{website_name}:{port}"
+        f"vless://{user_uuid}@{parsed_url.hostname}:{port}"
         f"?type=tcp&security=reality&pbk={public_key}&fp={fp}&sni={sni}"
         f"&sid={short_id}&spx=%2F#{MAIN_REMARK}-{user_email}"
     )
