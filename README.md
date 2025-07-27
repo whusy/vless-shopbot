@@ -27,7 +27,7 @@ SSL-сертификат: Для корректной работы бота об
 1. Клонируйте репозиторий:
 
 ```bash
-git clone --branch Latest https://github.com/evansvl/3x-ui-shop/
+git clone https://github.com/evansvl/3x-ui-shop/
 cd 3x-ui-shop
 ```
 
