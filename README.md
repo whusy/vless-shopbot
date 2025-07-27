@@ -1,6 +1,6 @@
 # 3x-ui-shop | Telegram-бот для продажи VLESS-конфигов
 
-![alt text](https://img.shields.io/badge/version-1.0.2-blue)
+![alt text](https://img.shields.io/badge/version-1.0.3-blue)
 ![alt text](https://img.shields.io/badge/language-Python-green)
 ![alt text](https://img.shields.io/github/issues/evansvl/3x-ui-shop)
 
@@ -24,10 +24,11 @@ SSL-сертификат: Для корректной работы бота об
 
 ## 🛠️ Установка
 
-1. Клонируйте репозиторий:
+1. Установите все нужные пакеты и клонируйте репозиторий:
 
 ```bash
-git clone --branch Latest https://github.com/evansvl/3x-ui-shop/
+sudo apt install nginx docker-compose
+git clone https://github.com/evansvl/3x-ui-shop/
 cd 3x-ui-shop
 ```
 
@@ -125,7 +126,7 @@ sudo ufw allow 443/tcp
 Запустите бота:
 
 ```bash
-docker compose up -d
+docker-compose up -d --build
 ```
 
 ## 🤖 Настройка в админ-панели
