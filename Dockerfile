@@ -1,9 +1,8 @@
 FROM python:3.11-slim
 WORKDIR /app
-COPY pyproject.toml .
 RUN python3 -m venv .venv
 ENV PATH="/app/.venv/bin:$PATH"
-RUN pip install -e .
-COPY src/ /app/src/
-ENV PYTHONPATH="${PYTHONPATH}:/app/src"
+COPY . .
+RUN pip install --no-cache-dir -e .
+ENV PYTHONUNBUFFERED=1
 CMD ["python3", "-m", "shop_bot"]
