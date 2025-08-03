@@ -1,120 +1,185 @@
-import os
 import uuid
-import dotenv
 from datetime import datetime, timedelta
 import logging
 from urllib.parse import urlparse
+from typing import List, Dict
 
 from py3xui import Api, Client, Inbound
-from . import otp
 
-dotenv.load_dotenv()
+from shop_bot.data_manager.database import get_host
+
 logger = logging.getLogger(__name__)
 
-xui_host = os.getenv("XUI_HOST")
-xui_username = os.getenv("XUI_USERNAME")
-xui_password = os.getenv("XUI_PASSWORD")
-totp = os.getenv("XUI_TOTP")
-should_use_totp = bool(totp)
-MAIN_REMARK = os.getenv("MAIN_REMARK")
-port = os.getenv("XUI_PORT")
-
-def login() -> tuple[Api | None, Inbound | None]:
-    api = None
-    target_inbound = None
-
+def login_to_host(host_url: str, username: str, password: str, inbound_id: int) -> tuple[Api | None, Inbound | None]:
     try:
-        if should_use_totp:
-            api = Api.from_env()
-            print(should_use_totp)
-            print(f"DEBUG: Value of 'TOTP_SECRET': {os.getenv('TOTP')}")
-            api.login()
-        else:
-            api = Api.from_env()
-            otp_code = otp.getTOTP()
-            if not otp_code:
-                raise ValueError("Failed to generate OTP code.")
-            logger.info(f"Using OTP code: {otp_code}")
-            api.login(otp_code)
-            
-            inbounds: list[Inbound] = api.inbound.get_list()
-            for inbound in inbounds:
-                if inbound.remark == MAIN_REMARK:
-                    target_inbound = inbound
-                    break
-            if target_inbound is None:
-                logger.error(f"No inbound found with remark '{MAIN_REMARK}'")
-                return api, None
-            return api, target_inbound
+        api = Api(host=host_url, username=username, password=password)
+        api.login()
+        inbounds: List[Inbound] = api.inbound.get_list()
+        target_inbound = next((inbound for inbound in inbounds if inbound.id == inbound_id), None)
+        
+        if target_inbound is None:
+            logger.error(f"Inbound with ID '{inbound_id}' not found on host '{host_url}'")
+            return api, None
+        return api, target_inbound
     except Exception as e:
-        logger.error(f"Login or inbound retrieval failed: {e}", exc_info=True)
+        logger.error(f"Login or inbound retrieval failed for host '{host_url}': {e}", exc_info=True)
         return None, None
 
-def get_connection_string(inbound: Inbound, user_uuid: str, user_email: str) -> str | None:
+def get_connection_string(inbound: Inbound, user_uuid: str, host_url: str, remark: str) -> str | None:
     if not inbound: return None
     settings = inbound.stream_settings.reality_settings.get("settings")
     if not settings: return None
+    
     public_key = settings.get("publicKey")
+    fp = settings.get("fingerprint")
     server_names = inbound.stream_settings.reality_settings.get("serverNames")
     short_ids = inbound.stream_settings.reality_settings.get("shortIds")
+    port = inbound.port
+    
     if not all([public_key, server_names, short_ids]): return None
     
-    fp = os.getenv("FP")
-    sni = os.getenv("SNI")
-    website_name = os.getenv("XUI_HOST")
-    parsed_url = urlparse(website_name)
+    parsed_url = urlparse(host_url)
     short_id = short_ids[0]
     
     connection_string = (
         f"vless://{user_uuid}@{parsed_url.hostname}:{port}"
-        f"?type=tcp&security=reality&pbk={public_key}&fp={fp}&sni={sni}"
-        f"&sid={short_id}&spx=%2F#{MAIN_REMARK}-{user_email}"
+        f"?type=tcp&security=reality&pbk={public_key}&fp={fp}&sni={server_names[0]}"
+        f"&sid={short_id}&spx=%2F#{remark}"
     )
     return connection_string
 
-def get_client_by_email(email: str, api: Api) -> Client | None:
+def update_or_create_client_on_panel(api: Api, inbound_id: int, email: str, days_to_add: int) -> tuple[str | None, int | None]:
     try:
-        client = api.client.get_by_email(email)
-        return client if client else None
-    except Exception:
-        return None
+        inbound_to_modify = api.inbound.get_by_id(inbound_id)
+        if not inbound_to_modify:
+            raise ValueError(f"Could not find inbound with ID {inbound_id}")
 
-def update_or_create_client(api: Api, inbound: Inbound, email: str, days_to_add: int):
-    try:
-        existing_client = None
-        full_inbound = api.inbound.get_by_id(inbound.id)
-        if full_inbound.settings and full_inbound.settings.clients:
-            for c in full_inbound.settings.clients:
-                if c.email == email:
-                    existing_client = c
-                    break
-
-        if existing_client and existing_client.expiry_time > int(datetime.now().timestamp() * 1000):
-            current_expiry = datetime.fromtimestamp(existing_client.expiry_time / 1000)
-            new_expiry_dt = current_expiry + timedelta(days=days_to_add)
+        if inbound_to_modify.settings.clients is None:
+            inbound_to_modify.settings.clients = []
+            
+        client_index = -1
+        for i, client in enumerate(inbound_to_modify.settings.clients):
+            if client.email == email:
+                client_index = i
+                break
+        
+        if client_index != -1:
+            existing_client = inbound_to_modify.settings.clients[client_index]
+            if existing_client.expiry_time > int(datetime.now().timestamp() * 1000):
+                current_expiry_dt = datetime.fromtimestamp(existing_client.expiry_time / 1000)
+                new_expiry_dt = current_expiry_dt + timedelta(days=days_to_add)
+            else:
+                new_expiry_dt = datetime.now() + timedelta(days=days_to_add)
         else:
             new_expiry_dt = datetime.now() + timedelta(days=days_to_add)
-        
+
         new_expiry_ms = int(new_expiry_dt.timestamp() * 1000)
 
-        if existing_client:
-            client_to_update = api.client.get_by_email(email)
-            if not client_to_update:
-                raise ValueError(f"Could not get client by email '{email}' for update")
+        if client_index != -1:
+            inbound_to_modify.settings.clients[client_index].expiry_time = new_expiry_ms
+            inbound_to_modify.settings.clients[client_index].total_gb = 0 # Reset traffic
+            inbound_to_modify.settings.clients[client_index].enable = True
             
-            client_to_update.expiry_time = new_expiry_ms
-            client_to_update.total_gb = 0
-            client_to_update.enable = True
-            client_to_update.id = existing_client.id
-            
-            api.client.update(client_to_update.id, client_to_update)
-            return existing_client.id, new_expiry_ms
+            client_uuid = inbound_to_modify.settings.clients[client_index].id
         else:
-            user_uuid = str(uuid.uuid4())
-            new_client = Client(id=user_uuid, email=email, enable=True, expiry_time=new_expiry_ms, total_gb=0)
-            api.client.add(inbound.id, [new_client])
-            return user_uuid, new_expiry_ms
+            client_uuid = str(uuid.uuid4())
+            new_client = Client(
+                id=client_uuid,
+                email=email,
+                enable=True,
+                expiry_time=new_expiry_ms,
+                total_gb=0
+            )
+            inbound_to_modify.settings.clients.append(new_client)
+
+        api.inbound.update(inbound_id, inbound_to_modify)
+
+        return client_uuid, new_expiry_ms
 
     except Exception as e:
-        print(f"Error in update_or_create_client: {e}")
+        logger.error(f"Error in update_or_create_client_on_panel: {e}", exc_info=True)
         return None, None
+
+async def create_or_update_key_on_host(host_name: str, email: str, days_to_add: int) -> Dict | None:
+    host_data = get_host(host_name)
+    if not host_data:
+        logger.error(f"Workflow failed: Host '{host_name}' not found in the database.")
+        return None
+
+    api, inbound = login_to_host(
+        host_url=host_data['host_url'],
+        username=host_data['host_username'],
+        password=host_data['host_pass'],
+        inbound_id=host_data['host_inbound_id']
+    )
+    if not api or not inbound:
+        logger.error(f"Workflow failed: Could not log in or find inbound on host '{host_name}'.")
+        return None
+        
+    client_uuid, new_expiry_ms = update_or_create_client_on_panel(api, inbound.id, email, days_to_add)
+    if not client_uuid:
+        logger.error(f"Workflow failed: Could not create/update client '{email}' on host '{host_name}'.")
+        return None
+    
+    connection_string = get_connection_string(inbound, client_uuid, host_data['host_url'], remark=host_name)
+    
+    logger.info(f"Successfully processed key for '{email}' on host '{host_name}'.")
+    
+    return {
+        "client_uuid": client_uuid,
+        "email": email,
+        "expiry_timestamp_ms": new_expiry_ms,
+        "connection_string": connection_string,
+        "host_name": host_name
+    }
+
+async def get_key_details_from_host(key_data: dict) -> dict | None:
+    host_name = key_data.get('host_name')
+    if not host_name:
+        logger.error(f"Could not get key details: host_name is missing for key_id {key_data.get('key_id')}")
+        return None
+
+    host_db_data = get_host(host_name)
+    if not host_db_data:
+        logger.error(f"Could not get key details: Host '{host_name}' not found in the database.")
+        return None
+
+    api, inbound = login_to_host(
+        host_url=host_db_data['host_url'],
+        username=host_db_data['host_username'],
+        password=host_db_data['host_pass'],
+        inbound_id=host_db_data['host_inbound_id']
+    )
+    if not api or not inbound: return None
+
+    connection_string = get_connection_string(inbound, key_data['xui_client_uuid'], host_db_data['host_url'], remark=host_name)
+    return {"connection_string": connection_string}
+
+async def delete_client_on_host(host_name: str, client_email: str) -> bool:
+    host_data = get_host(host_name)
+    if not host_data:
+        logger.error(f"Cannot delete client: Host '{host_name}' not found.")
+        return False
+
+    api, inbound = login_to_host(
+        host_url=host_data['host_url'],
+        username=host_data['host_username'],
+        password=host_data['host_pass'],
+        inbound_id=host_data['host_inbound_id']
+    )
+    if not api or not inbound:
+        logger.error(f"Cannot delete client: Login failed for host '{host_name}'.")
+        return False
+        
+    try:
+        client_to_delete = api.client.get_by_email(client_email)
+        if client_to_delete:
+            api.client.delete(client_to_delete.id)
+            logger.info(f"Successfully deleted client '{client_email}' from host '{host_name}'.")
+            return True
+        else:
+            logger.warning(f"Client '{client_email}' not found on host '{host_name}' for deletion.")
+            return True
+    except Exception as e:
+        logger.error(f"Failed to delete client '{client_email}' from host '{host_name}': {e}")
+        return False
