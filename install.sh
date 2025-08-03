@@ -51,13 +51,20 @@ fi
 cd $PROJECT_DIR
 echo -e "${GREEN}✔ Репозиторий готов.${NC}"
 
-
 echo -e "\n${CYAN}Шаг 3: Настройка домена и получение SSL-сертификатов...${NC}"
 
-read -p "Введите ваш домен (например, my-vpn-shop.com): " DOMAIN
+read -p "Введите ваш домен (например, my-vpn-shop.com): " RAW_DOMAIN
 read -p "Введите ваш email (для регистрации SSL-сертификатов Let's Encrypt): " EMAIL
 
-DOMAIN=$(echo $RAW_DOMAIN | sed -e 's|https\?://||' -e 's|/.*$||' -e 's|:.*$||')
+DOMAIN_NO_PROTOCOL=$(echo $RAW_DOMAIN | sed -e 's%^https\?://%%')
+DOMAIN_NO_PATH=$(echo $DOMAIN_NO_PROTOCOL | cut -d'/' -f1)
+DOMAIN=$(echo $DOMAIN_NO_PATH | cut -d':' -f1)
+
+if [ -z "$DOMAIN" ]; then
+    echo -e "${RED}Ошибка: Домен не может быть пустым. Установка прервана.${NC}"
+    exit 1
+fi
+
 echo -e "${GREEN}✔ Домен для работы: ${DOMAIN}${NC}"
 
 SERVER_IP=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
@@ -65,6 +72,16 @@ DOMAIN_IP=$(dig +short $DOMAIN @8.8.8.8 | tail -n1)
 
 echo -e "${YELLOW}IP вашего сервера: $SERVER_IP${NC}"
 echo -e "${YELLOW}IP, на который указывает домен '$DOMAIN': $DOMAIN_IP${NC}"
+
+if [ -z "$DOMAIN_IP" ]; then
+    echo -e "${RED}ВНИМАНИЕ: Не удалось определить IP-адрес для домена $DOMAIN. Убедитесь, что DNS-запись существует и уже обновилась.${NC}"
+    read -p "Продолжить установку? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Установка прервана."
+        exit 1
+    fi
+fi
 
 if [ "$SERVER_IP" != "$DOMAIN_IP" ]; then
     echo -e "${RED}ВНИМАНИЕ: DNS-запись для домена $DOMAIN не указывает на IP-адрес этого сервера!${NC}"
