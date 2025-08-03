@@ -65,23 +65,7 @@ cd $PROJECT_DIR
 
 echo -e "${GREEN}✔ Репозиторий готов.${NC}"
 
-
-echo -e "\n${CYAN}Шаг 3: Настройка файла конфигурации .env...${NC}"
-if [ -f ".env" ]; then
-    echo -e "${YELLOW}Файл .env уже существует. Пропускаем этот шаг.${NC}"
-else
-    echo -e "Сейчас вам нужно будет отредактировать файл с переменными окружения."
-    echo -e "Это откроет текстовый редактор 'nano'. Заполните необходимые поля."
-    echo -e "Для сохранения и выхода: ${YELLOW}Ctrl+X${NC}, затем ${YELLOW}Y${NC}, затем ${YELLOW}Enter${NC}."
-    read -p "Нажмите Enter, чтобы продолжить..."
-    
-    cp .env.example .env
-    nano .env
-    echo -e "${GREEN}✔ Файл .env создан.${NC}"
-fi
-
-
-echo -e "\n${CYAN}Шаг 4: Настройка Nginx для вебхуков YooKassa...${NC}"
+echo -e "\n${CYAN}Шаг 3: Настройка Nginx для вебхуков YooKassa...${NC}"
 
 read -p "Введите ваш домен (например, my-vpn-shop.com): " DOMAIN
 read -p "Какой порт вы будете использовать для вебхуков YooKassa? (443 или 8443): " YOOKASSA_PORT
@@ -142,7 +126,7 @@ EOF
     sudo systemctl reload nginx
 fi
 
-echo -e "\n${CYAN}Шаг 5: Сборка и запуск Docker-контейнера...${NC}"
+echo -e "\n${CYAN}Шаг 4: Сборка и запуск Docker-контейнера...${NC}"
 sudo docker-compose up -d --build
 
 IP_ADDRESS=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
