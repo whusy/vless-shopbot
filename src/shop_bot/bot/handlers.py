@@ -582,7 +582,7 @@ def get_user_router() -> Router:
             receipt = {
                 "customer": {"email": customer_email},
                 "items": [{
-                    "description": f"Подписка на {months} мес. ({host_name})",
+                    "description": f"Подписка на {months} мес.",
                     "quantity": "1.00",
                     "amount": {"value": f"{price_rub:.2f}", "currency": "RUB"},
                     "vat_code": "1"
