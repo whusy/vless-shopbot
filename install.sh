@@ -93,7 +93,7 @@ fi
 echo -e "\n${CYAN}Шаг 4: Настройка Nginx...${NC}"
 
 read -p "Какой порт вы будете использовать для вебхуков YooKassa? (443 или 8443, рекомендуется 443): " YOOKASSA_PORT
-YOOKASSA_PORT=${YOOKASSA_PORT:-443} # Если ввод пустой, используем 443
+YOOKASSA_PORT=${YOOKASSA_PORT:-443}
 read -p "Укажите порт, на котором работает бот (по умолчанию 1488): " BOT_PORT
 BOT_PORT=${BOT_PORT:-1488}
 
