@@ -5,7 +5,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path.cwd()
+PROJECT_ROOT = Path("/app/project")
 DB_FILE = PROJECT_ROOT / "users.db"
 
 def initialize_db():

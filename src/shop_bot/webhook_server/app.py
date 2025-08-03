@@ -32,12 +32,28 @@ def create_webhook_app(bot_controller_instance):
     global _bot_controller
     _bot_controller = bot_controller_instance
 
-    current_file_path = os.path.abspath(__file__)
-    project_root = os.path.abspath(os.path.join(os.path.dirname(current_file_path), '..', '..'))
-    template_dir = os.path.join(project_root, 'templates')
-    static_dir = os.path.join(project_root, 'static')
-    flask_app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
-    flask_app.config['SECRET_KEY'] = 'a-very-secret-random-string-for-flask'
+    app_file_path = os.path.abspath(__file__)
+    app_dir = os.path.dirname(app_file_path)
+    template_dir = os.path.join(app_dir, 'templates')
+    template_file = os.path.join(template_dir, 'login.html')
+
+    print("--- DIAGNOSTIC INFORMATION ---", flush=True)
+    print(f"Current Working Directory: {os.getcwd()}", flush=True)
+    print(f"Path of running app.py: {app_file_path}", flush=True)
+    print(f"Directory of running app.py: {app_dir}", flush=True)
+    print(f"Expected templates directory: {template_dir}", flush=True)
+    print(f"Expected login.html path: {template_file}", flush=True)
+    print(f"Does template directory exist? -> {os.path.isdir(template_dir)}", flush=True)
+    print(f"Does login.html file exist? -> {os.path.isfile(template_file)}", flush=True)
+    print("--- END DIAGNOSTIC INFORMATION ---", flush=True)
+    
+    flask_app = Flask(
+        __name__,
+        template_folder='templates',
+        static_folder='static'
+    )
+    
+    flask_app.config['SECRET_KEY'] = 'lolkek4eburek'
 
     @flask_app.context_processor
     def inject_current_year():
