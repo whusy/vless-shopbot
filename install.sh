@@ -57,8 +57,11 @@ echo -e "\n${CYAN}Шаг 3: Настройка домена и получени�
 read -p "Введите ваш домен (например, my-vpn-shop.com): " DOMAIN
 read -p "Введите ваш email (для регистрации SSL-сертификатов Let's Encrypt): " EMAIL
 
+DOMAIN=$(echo $RAW_DOMAIN | sed -e 's|https\?://||' -e 's|/.*$||' -e 's|:.*$||')
+echo -e "${GREEN}✔ Домен для работы: ${DOMAIN}${NC}"
+
 SERVER_IP=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
-DOMAIN_IP=$(dig +short $DOMAIN @8.8.8.8)
+DOMAIN_IP=$(dig +short $DOMAIN @8.8.8.8 | tail -n1)
 
 echo -e "${YELLOW}IP вашего сервера: $SERVER_IP${NC}"
 echo -e "${YELLOW}IP, на который указывает домен '$DOMAIN': $DOMAIN_IP${NC}"
