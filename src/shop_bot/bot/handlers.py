@@ -2,14 +2,14 @@ import logging
 import uuid
 import qrcode
 import aiohttp
-import hashlib
-import json
 import re
+import aiohttp
 from functools import wraps
 from yookassa import Payment
 from io import BytesIO
 from datetime import datetime, timedelta
-
+from aiosend import CryptoPay, TESTNET
+from decimal import Decimal, ROUND_HALF_UP
 
 from aiogram import Bot, Router, F, types, html
 from aiogram.filters import Command
@@ -35,6 +35,7 @@ from shop_bot.config import (
 TELEGRAM_BOT_USERNAME = None
 PAYMENT_METHODS = None
 ADMIN_ID = None
+CRYPTO_BOT_TOKEN = get_setting("cryptobot_token")
 
 logger = logging.getLogger(__name__)
 admin_router = Router()
@@ -617,6 +618,78 @@ def get_user_router() -> Router:
             await callback.message.answer("Не удалось создать ссылку на оплату.")
             await state.clear()
 
+    @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_cryptobot")
+    async def create_cryptobot_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer("Создаю счет в Crypto Pay...")
+        
+        data = await state.get_data()
+        
+        plan_id = data.get('plan_id')
+        user_id = data.get('user_id', callback.from_user.id)
+        customer_email = data.get('customer_email')
+        host_name = data.get('host_name')
+        action = data.get('action')
+        key_id = data.get('key_id')
+
+        cryptobot_token = get_setting('cryptobot_token')
+        if not cryptobot_token:
+            logger.error(f"Attempt to create Crypto Pay invoice failed for user {user_id}: cryptobot_token is not set.")
+            await callback.message.edit_text("❌ Оплата криптовалютой временно недоступна. (Администратор не указал токен).")
+            await state.clear()
+            return
+
+        plan = get_plan_by_id(plan_id)
+        if not plan:
+            logger.error(f"Attempt to create Crypto Pay invoice failed for user {user_id}: Plan with id {plan_id} not found.")
+            await callback.message.edit_text("❌ Произошла ошибка при выборе тарифа.")
+            await state.clear()
+            return
+            
+        price_rub = Decimal(str(plan['price']))
+        months = plan['months']
+        
+        try:
+            exchange_rate = await get_usdt_rub_rate()
+
+            if not exchange_rate:
+                logger.warning("Failed to get live exchange rate. Falling back to the rate from settings.")
+                if not exchange_rate:
+                    await callback.message.edit_text("❌ Не удалось получить курс валют. Попробуйте позже.")
+                    await state.clear()
+                    return
+
+            margin = Decimal("1.03")
+            price_usdt = (price_rub / exchange_rate * margin).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            
+            logger.info(f"Creating Crypto Pay invoice for user {user_id}. Plan price: {price_rub} RUB. Converted to: {price_usdt} USDT.")
+
+            crypto = CryptoPay(cryptobot_token, TESTNET)
+            
+            payload_data = f"{user_id}:{months}:{float(price_rub)}:{action}:{key_id}:{host_name}:{plan_id}:{customer_email}"
+
+            invoice = await crypto.create_invoice(
+                currency_type="fiat",
+                fiat="RUB",
+                amount=float(price_rub),
+                description=f"Подписка на {months} мес.",
+                payload=payload_data,
+                expires_in=3600
+            )
+            
+            if not invoice or not invoice.pay_url:
+                raise Exception("Failed to create invoice or pay_url is missing.")
+
+            await callback.message.edit_text(
+                "Нажмите на кнопку ниже для оплаты:",
+                reply_markup=keyboards.create_payment_keyboard(invoice.pay_url)
+            )
+            await state.clear()
+
+        except Exception as e:
+            logger.error(f"Failed to create Crypto Pay invoice for user {user_id}: {e}", exc_info=True)
+            await callback.message.edit_text(f"❌ Не удалось создать счет для оплаты криптовалютой.\n\n<pre>Ошибка: {e}</pre>")
+            await state.clear()
+        
         @user_router.message(F.text)
         @registration_required
         async def unknown_message_handler(message: types.Message):
@@ -634,16 +707,39 @@ async def process_successful_onboarding(callback: types.CallbackQuery, state: FS
     await callback.message.answer("Приятного использования!", reply_markup=keyboards.main_reply_keyboard)
     await show_main_menu(callback.message)
 
+async def get_usdt_rub_rate() -> Decimal | None:
+    url = "https://api.binance.com/api/v3/ticker/price"
+    params = {"symbol": "USDTRUB"}
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as response:
+                response.raise_for_status()
+                data = await response.json()
+                price_str = data.get('price')
+                if price_str:
+                    logger.info(f"Got USDT RUB: {price_str}")
+                    return Decimal(price_str)
+                logger.error("Can't find 'price' in Binance response.")
+                return None
+    except Exception as e:
+        logger.error(f"Error getting USDT RUB Binance rate: {e}", exc_info=True)
+        return None
+
 async def process_successful_payment(bot: Bot, metadata: dict):
     try:
-        user_id, months, price, action, key_id, host_name, plan_id, customer_email = map(
-            metadata.get, 
-            ['user_id', 'months', 'price', 'action', 'key_id', 'host_name', 'plan_id', 'customer_email']
-        )
-        user_id, months, price, key_id, plan_id, customer_email = int(user_id), int(months), float(price), int(key_id), int(plan_id), str(customer_email)
-        
+        user_id = int(metadata['user_id'])
+        months = int(metadata['months'])
+        price = float(metadata['price'])
+        action = metadata['action']
+        key_id = int(metadata['key_id'])
+        host_name = metadata['host_name']
+        plan_id = int(metadata['plan_id'])
+        customer_email = metadata.get('customer_email')
+
         chat_id_to_delete = metadata.get('chat_id')
         message_id_to_delete = metadata.get('message_id')
+        
     except (ValueError, TypeError) as e:
         logger.error(f"FATAL: Could not parse metadata. Error: {e}. Metadata: {metadata}")
         return
@@ -698,7 +794,7 @@ async def process_successful_payment(bot: Bot, metadata: dict):
             plan_name=plan_info.get('plan_name', 'Неизвестный') if plan_info else 'Неизвестный',
             months=months,
             amount=price,
-            method='YooKassa'
+            method='Crypto' if 'chat_id' not in metadata else 'YooKassa'
         )
         
         await processing_message.delete()

@@ -81,17 +81,17 @@ def initialize_db():
                 "support_user": None,
                 "support_text": None,
                 "channel_url": None,
+                "receipt_email": "example@example.com",
                 "telegram_bot_token": None,
                 "telegram_bot_username": None,
                 "admin_telegram_id": None,
                 "yookassa_shop_id": None,
                 "yookassa_secret_key": None,
                 "sbp_enabled": "false",
-                "receipt_email": "example@example.com"
+                "cryptobot_token": None
             }
-            if not cursor.execute("SELECT COUNT(*) FROM bot_settings").fetchone()[0]:
-                for key, value in default_settings.items():
-                    cursor.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES (?, ?)", (key, value))
+            for key, value in default_settings.items():
+                cursor.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES (?, ?)", (key, value))
             conn.commit()
             logging.info("Database initialized successfully.")
     except sqlite3.Error as e:

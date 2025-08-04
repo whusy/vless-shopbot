@@ -76,12 +76,18 @@ class BotController:
             yookassa_shop_id = database.get_setting("yookassa_shop_id")
             yookassa_secret_key = database.get_setting("yookassa_secret_key")
             yookassa_enabled = bool(yookassa_shop_id and yookassa_secret_key)
+
+            cryptobot_token = database.get_setting("cryptobot_token")
+            cryptobot_enabled = bool(cryptobot_token)
             
             if yookassa_enabled:
                 Configuration.account_id = yookassa_shop_id
                 Configuration.secret_key = yookassa_secret_key
             
-            handlers.PAYMENT_METHODS = {"yookassa": yookassa_enabled}
+            handlers.PAYMENT_METHODS = {
+                "yookassa": yookassa_enabled,
+                "cryptobot": cryptobot_enabled
+            }
             handlers.TELEGRAM_BOT_USERNAME = bot_username
             handlers.ADMIN_ID = admin_id
 

@@ -187,6 +187,7 @@
 
 			<section class="settings-section">
 				<h2>Настройки Платежных Систем</h2>
+				<h2>Настройка YooKassa</h2>
 				<div class="form-group">
 					<label for="receipt_email">Почта для чеков:</label>
 					<input
@@ -220,6 +221,17 @@
 					value="true" {% if settings.sbp_enabled == 'true' %}checked{% endif
 					%}>
 					<label for="sbp_enabled">Включить оплату через СБП</label>
+				</div>
+				<h2>Настройка CryptoBot</h2>
+				<div class="form-group password-wrapper">
+					<label for="cryptobot_token">CryptoBot Token:</label>
+					<input
+						type="password"
+						id="cryptobot_token"
+						name="cryptobot_token"
+						value="{{ settings.cryptobot_token or '' }}"
+					/>
+					<button type="button" class="toggle-password">👁️</button>
 				</div>
 			</section>
 

@@ -16,7 +16,7 @@ from shop_bot.data_manager.database import (
     create_host, delete_host, create_plan, delete_plan, get_user_count,
     get_total_keys_count, get_total_spent_sum, get_daily_stats_for_charts,
     get_recent_transactions, get_paginated_transactions, get_all_users, get_user_keys,
-    ban_user, unban_user, delete_user_keys
+    ban_user, unban_user, delete_user_keys, get_setting
 )
 
 _bot_controller = None
@@ -25,7 +25,7 @@ ALL_SETTINGS_KEYS = [
     "panel_login", "panel_password", "about_text", "terms_url", "privacy_url",
     "support_user", "support_text", "channel_url", "telegram_bot_token",
     "telegram_bot_username", "admin_telegram_id", "yookassa_shop_id",
-    "yookassa_secret_key", "sbp_enabled", "receipt_email"
+    "yookassa_secret_key", "sbp_enabled", "receipt_email", "cryptobot_token"
 ]
 
 def create_webhook_app(bot_controller_instance):
@@ -270,6 +270,51 @@ def create_webhook_app(bot_controller_instance):
             return 'OK', 200
         except Exception as e:
             logger.error(f"Error in yookassa webhook handler: {e}", exc_info=True)
+            return 'Error', 500
+        
+    @flask_app.route('/cryptobot-webhook', methods=['POST'])
+    def cryptobot_webhook_handler():
+        try:
+            request_data = request.json
+            
+            if request_data and request_data.get('update_type') == 'invoice_paid':
+                payload_data = request_data.get('payload', {})
+                
+                payload_string = payload_data.get('payload')
+                
+                if not payload_string:
+                    logger.warning("CryptoBot Webhook: Received paid invoice but payload was empty.")
+                    return 'OK', 200
+
+                parts = payload_string.split(':')
+                if len(parts) < 8:
+                    logger.error(f"cryptobot Webhook: Invalid payload format received: {payload_string}")
+                    return 'Error', 400
+
+                metadata = {
+                    "user_id": parts[0],
+                    "months": parts[1],
+                    "price": parts[2],
+                    "action": parts[3],
+                    "key_id": parts[4],
+                    "host_name": parts[5],
+                    "plan_id": parts[6],
+                    "customer_email": parts[7] if parts[7] != 'None' else None
+                }
+                
+                bot = _bot_controller.get_bot_instance()
+                loop = current_app.config.get('EVENT_LOOP')
+                payment_processor = handlers.process_successful_payment
+
+                if bot and loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(payment_processor(bot, metadata), loop)
+                else:
+                    logger.error("cryptobot Webhook: Could not process payment because bot or event loop is not running.")
+
+            return 'OK', 200
+            
+        except Exception as e:
+            logger.error(f"Error in cryptobot webhook handler: {e}", exc_info=True)
             return 'Error', 500
 
     return flask_app
