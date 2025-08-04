@@ -254,7 +254,7 @@ def get_user_router() -> Router:
         user_id = callback.from_user.id
         user_keys = get_user_keys(user_id)
         await callback.message.edit_text(
-            "Ваши ключи:" if user_keys else "У вас пока нет ключей, давайте создадим первый!",
+            "Ваши ключи:" if user_keys else "У вас пока нет ключей.",
             reply_markup=keyboards.create_keys_management_keyboard(user_keys)
         )
 
