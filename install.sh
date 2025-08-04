@@ -111,7 +111,6 @@ else
     echo -e "${GREEN}✔ SSL-сертификаты успешно получены.${NC}"
 fi
 
-
 echo -e "\n${CYAN}Шаг 4: Настройка Nginx...${NC}"
 
 read -p "Какой порт вы будете использовать для вебхуков YooKassa? (443 или 8443, рекомендуется 443): " YOOKASSA_PORT
@@ -144,22 +143,6 @@ server {
 }
 EOF
 
-if [ "$YOOKASSA_PORT" != "443" ]; then
-    sudo bash -c "cat >> $NGINX_CONF_FILE" <<EOF
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name ${DOMAIN};
-
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-    
-    return 301 https://\$host:${YOOKASSA_PORT}\$request_uri;
-}
-EOF
-fi
-
 if [ ! -f "$NGINX_ENABLED_FILE" ]; then
     sudo ln -s $NGINX_CONF_FILE $NGINX_ENABLED_FILE
 fi
@@ -167,7 +150,6 @@ fi
 echo -e "${GREEN}✔ Конфигурация Nginx создана.${NC}"
 echo -e "${YELLOW}Проверяем и перезагружаем Nginx...${NC}"
 sudo nginx -t && sudo systemctl reload nginx
-
 
 echo -e "\n${CYAN}Шаг 5: Сборка и запуск Docker-контейнера...${NC}"
 if [ "$(sudo docker-compose ps -q)" ]; then
