@@ -1,6 +1,6 @@
 # VLESS Shop Bot | Telegram-бот для продажи VPN
 
-![Версия](https://img.shields.io/badge/version-2.0.1-blue)
+![Версия](https://img.shields.io/badge/version-2.0.2-blue)
 ![Язык](https://img.shields.io/badge/language-Python-green)
 ![Платформа](https://img.shields.io/badge/platform-Docker-blueviolet)
 
