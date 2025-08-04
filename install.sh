@@ -97,6 +97,8 @@ if command -v ufw &> /dev/null && sudo ufw status | grep -q 'Status: active'; th
     echo -e "${YELLOW}Обнаружен активный файрвол (ufw). Открываем порты 80 и 443...${NC}"
     sudo ufw allow 80/tcp
     sudo ufw allow 443/tcp
+    sudo ufw allow 1488/tcp
+    sudo ufw allow 8443/tcp
 fi
 
 if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
@@ -114,8 +116,6 @@ echo -e "\n${CYAN}Шаг 4: Настройка Nginx...${NC}"
 
 read -p "Какой порт вы будете использовать для вебхуков YooKassa? (443 или 8443, рекомендуется 443): " YOOKASSA_PORT
 YOOKASSA_PORT=${YOOKASSA_PORT:-443}
-read -p "Укажите порт, на котором работает бот (по умолчанию 1488): " BOT_PORT
-BOT_PORT=${BOT_PORT:-1488}
 
 NGINX_CONF_FILE="/etc/nginx/sites-available/$PROJECT_DIR.conf"
 NGINX_ENABLED_FILE="/etc/nginx/sites-enabled/$PROJECT_DIR.conf"
@@ -135,7 +135,7 @@ server {
     ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
 
     location / {
-        proxy_pass http://127.0.0.1:${BOT_PORT};
+        proxy_pass http://127.0.0.1:1488;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
