@@ -594,7 +594,7 @@ def get_user_router() -> Router:
                 "amount": {"value": f"{price_rub:.2f}", "currency": "RUB"},
                 "confirmation": {"type": "redirect", "return_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}"},
                 "capture": True,
-                "description": f"Подписка на {months} мес. ({host_name})",
+                "description": f"Подписка на {months} мес.",
                 "metadata": {
                     "user_id": user_id, "months": months, "price": price_rub, 
                     "action": action, "key_id": key_id, "host_name": host_name,
