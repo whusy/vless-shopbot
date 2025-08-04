@@ -167,19 +167,22 @@ async def delete_client_on_host(host_name: str, client_email: str) -> bool:
         password=host_data['host_pass'],
         inbound_id=host_data['host_inbound_id']
     )
+
     if not api or not inbound:
-        logger.error(f"Cannot delete client: Login failed for host '{host_name}'.")
+        logger.error(f"Cannot delete client: Login or inbound lookup failed for host '{host_name}'.")
         return False
         
     try:
         client_to_delete = api.client.get_by_email(client_email)
+        
         if client_to_delete:
-            api.client.delete(client_to_delete.id)
+            api.client.delete(inbound.id, client_to_delete.id)
             logger.info(f"Successfully deleted client '{client_email}' from host '{host_name}'.")
             return True
         else:
-            logger.warning(f"Client '{client_email}' not found on host '{host_name}' for deletion.")
+            logger.warning(f"Client '{client_email}' not found on host '{host_name}' for deletion (already gone).")
             return True
+            
     except Exception as e:
-        logger.error(f"Failed to delete client '{client_email}' from host '{host_name}': {e}")
+        logger.error(f"Failed to delete client '{client_email}' from host '{host_name}': {e}", exc_info=True)
         return False

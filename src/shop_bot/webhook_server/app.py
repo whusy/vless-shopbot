@@ -196,18 +196,19 @@ def create_webhook_app(bot_controller_instance):
     @login_required
     def revoke_keys_route(user_id):
         keys_to_revoke = get_user_keys(user_id)
-        success = True
+        success_count = 0
+        
         for key in keys_to_revoke:
             result = asyncio.run(xui_api.delete_client_on_host(key['host_name'], key['key_email']))
-            if not result:
-                success = False
-                flash(f"Не удалось удалить ключ {key['key_email']} с хоста {key['host_name']}.", 'danger')
+            if result:
+                success_count += 1
         
-        if success:
-            delete_user_keys(user_id)
-            flash(f"Все ключи для пользователя {user_id} были отозваны.", 'success')
+        delete_user_keys(user_id)
+        
+        if success_count == len(keys_to_revoke):
+            flash(f"Все {len(keys_to_revoke)} ключей для пользователя {user_id} были успешно отозваны.", 'success')
         else:
-            flash(f"Не все ключи для пользователя {user_id} были отозваны. Проверьте логи.", 'warning')
+            flash(f"Удалось отозвать {success_count} из {len(keys_to_revoke)} ключей для пользователя {user_id}. Проверьте логи.", 'warning')
 
         return redirect(url_for('users_page'))
 
