@@ -8,7 +8,7 @@ from functools import wraps
 from yookassa import Payment
 from io import BytesIO
 from datetime import datetime, timedelta
-from aiosend import CryptoPay, TESTNET
+from aiosend import CryptoPay
 from decimal import Decimal, ROUND_HALF_UP
 
 from aiogram import Bot, Router, F, types, html
@@ -663,7 +663,7 @@ def get_user_router() -> Router:
             
             logger.info(f"Creating Crypto Pay invoice for user {user_id}. Plan price: {price_rub} RUB. Converted to: {price_usdt} USDT.")
 
-            crypto = CryptoPay(cryptobot_token, TESTNET)
+            crypto = CryptoPay(cryptobot_token)
             
             payload_data = f"{user_id}:{months}:{float(price_rub)}:{action}:{key_id}:{host_name}:{plan_id}:{customer_email}"
 
