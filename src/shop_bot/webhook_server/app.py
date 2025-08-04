@@ -292,7 +292,7 @@ def create_webhook_app(bot_controller_instance):
                     return 'OK', 200
 
                 parts = payload_string.split(':')
-                if len(parts) < 8:
+                if len(parts) < 9:
                     logger.error(f"cryptobot Webhook: Invalid payload format received: {payload_string}")
                     return 'Error', 400
 
@@ -304,7 +304,8 @@ def create_webhook_app(bot_controller_instance):
                     "key_id": parts[4],
                     "host_name": parts[5],
                     "plan_id": parts[6],
-                    "customer_email": parts[7] if parts[7] != 'None' else None
+                    "customer_email": parts[7] if parts[7] != 'None' else None,
+                    "payment_method": parts[8]
                 }
                 
                 bot = _bot_controller.get_bot_instance()

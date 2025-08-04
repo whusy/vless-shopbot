@@ -527,7 +527,6 @@ def get_user_router() -> Router:
 
     async def show_payment_options(message: types.Message, state: FSMContext):
         data = await state.get_data()
-        
         try:
             await message.edit_text(
                 CHOOSE_PAYMENT_METHOD_MESSAGE,
@@ -603,7 +602,8 @@ def get_user_router() -> Router:
                 "metadata": {
                     "user_id": user_id, "months": months, "price": price_rub, 
                     "action": action, "key_id": key_id, "host_name": host_name,
-                    "plan_id": plan_id, "customer_email": customer_email
+                    "plan_id": plan_id, "customer_email": customer_email,
+                    "payment_method": "YooKassa"
                 }
             }
             if receipt:
@@ -669,7 +669,7 @@ def get_user_router() -> Router:
 
             crypto = CryptoPay(cryptobot_token)
             
-            payload_data = f"{user_id}:{months}:{float(price_rub)}:{action}:{key_id}:{host_name}:{plan_id}:{customer_email}"
+            payload_data = f"{user_id}:{months}:{float(price_rub)}:{action}:{key_id}:{host_name}:{plan_id}:{customer_email}:CryptoBot"
 
             invoice = await crypto.create_invoice(
                 currency_type="fiat",
@@ -694,36 +694,38 @@ def get_user_router() -> Router:
             await callback.message.edit_text(f"❌ Не удалось создать счет для оплаты криптовалютой.\n\n<pre>Ошибка: {e}</pre>")
             await state.clear()
         
-        @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_heleket")
-        async def create_heleket_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
-            await callback.answer("Создаю счет Heleket...")
+
+
+    @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_heleket")
+    async def create_heleket_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer("Создаю счет Heleket...")
+        
+        data = await state.get_data()
+        plan = get_plan_by_id(data.get('plan_id'))
+        
+        if not plan:
+            await callback.message.edit_text("❌ Произошла ошибка при выборе тарифа.")
+            await state.clear()
+            return
             
-            data = await state.get_data()
-            plan = get_plan_by_id(data.get('plan_id'))
-            
-            if not plan:
-                await callback.message.edit_text("❌ Произошла ошибка при выборе тарифа.")
-                await state.clear()
-                return
-                
-            price_rub = float(plan['price'])
-            
-            pay_url = await _create_heleket_payment_request(
-                user_id=callback.from_user.id,
-                price=price_rub,
-                months=plan['months'],
-                host_name=data.get('host_name'),
-                state_data=data
+        price_rub = float(plan['price'])
+        
+        pay_url = await _create_heleket_payment_request(
+            user_id=callback.from_user.id,
+            price=price_rub,
+            months=plan['months'],
+            host_name=data.get('host_name'),
+            state_data=data
+        )
+        
+        if pay_url:
+            await callback.message.edit_text(
+                "Нажмите на кнопку ниже для оплаты:",
+                reply_markup=keyboards.create_payment_keyboard(pay_url)
             )
-            
-            if pay_url:
-                await callback.message.edit_text(
-                    "💳 Ваш счет для оплаты картой создан.",
-                    reply_markup=keyboards.create_payment_keyboard(pay_url)
-                )
-                await state.clear()
-            else:
-                await callback.message.edit_text("❌ Не удалось создать счет Heleket. Попробуйте другой способ оплаты.")
+            await state.clear()
+        else:
+            await callback.message.edit_text("❌ Не удалось создать счет Heleket. Попробуйте другой способ оплаты.")
 
         @user_router.message(F.text)
         @registration_required
@@ -743,9 +745,6 @@ async def process_successful_onboarding(callback: types.CallbackQuery, state: FS
     await show_main_menu(callback.message)
 
 async def _create_heleket_payment_request(user_id: int, price: float, months: int, host_name: str, state_data: dict) -> str | None:
-    """
-    (Внутренняя) Формирует и отправляет запрос на создание счета в Heleket.
-    """
     merchant_id = get_setting("heleket_merchant_id")
     api_key = get_setting("heleket_api_key")
     bot_username = get_setting("telegram_bot_username")
@@ -762,7 +761,7 @@ async def _create_heleket_payment_request(user_id: int, price: float, months: in
         "user_id": user_id, "months": months, "price": price,
         "action": state_data.get('action'), "key_id": state_data.get('key_id'),
         "host_name": host_name, "plan_id": state_data.get('plan_id'),
-        "customer_email": state_data.get('customer_email')
+        "customer_email": state_data.get('customer_email'), "payment_method": "Heleket"
     }
 
     payload = {
@@ -774,13 +773,12 @@ async def _create_heleket_payment_request(user_id: int, price: float, months: in
         "url_success": redirect_url,
         "url_callback": f"https://{domain}/heleket-webhook",
         "lifetime": 1800,
-        "is_payment_multiple": False,
+        "is_payment_multiple": False
     }
     
-    sorted_payload_str = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     headers = {
         "merchant": merchant_id,
-        "sign": _generate_heleket_signature(sorted_payload_str, api_key),
+        "sign": _generate_heleket_signature(json.dumps(payload), api_key),
         "Content-Type": "application/json",
     }
     
@@ -798,7 +796,11 @@ async def _create_heleket_payment_request(user_id: int, price: float, months: in
         logger.error(f"Heleket request failed: {e}", exc_info=True)
         return None
 
-def _generate_heleket_signature(data_str: str, api_key: str) -> str:
+def _generate_heleket_signature(data, api_key: str) -> str:
+    if isinstance(data, dict):
+        data_str = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+    else:
+        data_str = str(data)
     base64_encoded = base64.b64encode(data_str.encode()).decode()
     raw_string = f"{base64_encoded}{api_key}"
     return hashlib.md5(raw_string.encode()).hexdigest()
@@ -832,6 +834,7 @@ async def process_successful_payment(bot: Bot, metadata: dict):
         host_name = metadata['host_name']
         plan_id = int(metadata['plan_id'])
         customer_email = metadata.get('customer_email')
+        payment_method = metadata.get('payment_method')
 
         chat_id_to_delete = metadata.get('chat_id')
         message_id_to_delete = metadata.get('message_id')
@@ -890,7 +893,7 @@ async def process_successful_payment(bot: Bot, metadata: dict):
             plan_name=plan_info.get('plan_name', 'Неизвестный') if plan_info else 'Неизвестный',
             months=months,
             amount=price,
-            method='Crypto' if 'chat_id' not in metadata else 'YooKassa'
+            method=payment_method or 'Неизвестный'
         )
         
         await processing_message.delete()
