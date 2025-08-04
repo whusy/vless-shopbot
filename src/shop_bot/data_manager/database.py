@@ -88,7 +88,10 @@ def initialize_db():
                 "yookassa_shop_id": None,
                 "yookassa_secret_key": None,
                 "sbp_enabled": "false",
-                "cryptobot_token": None
+                "cryptobot_token": None,
+                "heleket_merchant_id": None,
+                "heleket_api_key": None,
+                "domain": None
             }
             for key, value in default_settings.items():
                 cursor.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES (?, ?)", (key, value))

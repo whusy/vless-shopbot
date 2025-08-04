@@ -4,6 +4,10 @@ import qrcode
 import aiohttp
 import re
 import aiohttp
+import hashlib
+import json
+import base64
+from hmac import compare_digest
 from functools import wraps
 from yookassa import Payment
 from io import BytesIO
@@ -148,9 +152,9 @@ def get_user_router() -> Router:
             
         try:
             if '@' not in channel_url and 't.me/' not in channel_url:
-                 logger.error(f"Неверный формат URL канала: {channel_url}. Пропускаем проверку подписки.")
-                 await process_successful_onboarding(callback, state)
-                 return
+                logger.error(f"Неверный формат URL канала: {channel_url}. Пропускаем проверку подписки.")
+                await process_successful_onboarding(callback, state)
+                return
 
             channel_id = '@' + channel_url.split('/')[-1] if 't.me/' in channel_url else channel_url
             member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
@@ -690,6 +694,37 @@ def get_user_router() -> Router:
             await callback.message.edit_text(f"❌ Не удалось создать счет для оплаты криптовалютой.\n\n<pre>Ошибка: {e}</pre>")
             await state.clear()
         
+        @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_heleket")
+        async def create_heleket_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
+            await callback.answer("Создаю счет Heleket...")
+            
+            data = await state.get_data()
+            plan = get_plan_by_id(data.get('plan_id'))
+            
+            if not plan:
+                await callback.message.edit_text("❌ Произошла ошибка при выборе тарифа.")
+                await state.clear()
+                return
+                
+            price_rub = float(plan['price'])
+            
+            pay_url = await _create_heleket_payment_request(
+                user_id=callback.from_user.id,
+                price=price_rub,
+                months=plan['months'],
+                host_name=data.get('host_name'),
+                state_data=data
+            )
+            
+            if pay_url:
+                await callback.message.edit_text(
+                    "💳 Ваш счет для оплаты картой создан.",
+                    reply_markup=keyboards.create_payment_keyboard(pay_url)
+                )
+                await state.clear()
+            else:
+                await callback.message.edit_text("❌ Не удалось создать счет Heleket. Попробуйте другой способ оплаты.")
+
         @user_router.message(F.text)
         @registration_required
         async def unknown_message_handler(message: types.Message):
@@ -706,6 +741,67 @@ async def process_successful_onboarding(callback: types.CallbackQuery, state: FS
     await callback.message.delete()
     await callback.message.answer("Приятного использования!", reply_markup=keyboards.main_reply_keyboard)
     await show_main_menu(callback.message)
+
+async def _create_heleket_payment_request(user_id: int, price: float, months: int, host_name: str, state_data: dict) -> str | None:
+    """
+    (Внутренняя) Формирует и отправляет запрос на создание счета в Heleket.
+    """
+    merchant_id = get_setting("heleket_merchant_id")
+    api_key = get_setting("heleket_api_key")
+    bot_username = get_setting("telegram_bot_username")
+    domain = get_setting("domain")
+
+    if not all([merchant_id, api_key, bot_username, domain]):
+        logger.error("Heleket Error: Not all required settings are configured.")
+        return None
+
+    redirect_url = f"https://t.me/{bot_username}"
+    order_id = str(uuid.uuid4())
+    
+    metadata = {
+        "user_id": user_id, "months": months, "price": price,
+        "action": state_data.get('action'), "key_id": state_data.get('key_id'),
+        "host_name": host_name, "plan_id": state_data.get('plan_id'),
+        "customer_email": state_data.get('customer_email')
+    }
+
+    payload = {
+        "amount": f"{price:.2f}",
+        "currency": "RUB",
+        "order_id": order_id,
+        "description": json.dumps(metadata),
+        "url_return": redirect_url,
+        "url_success": redirect_url,
+        "url_callback": f"https://{domain}/heleket-webhook",
+        "lifetime": 1800,
+        "is_payment_multiple": False,
+    }
+    
+    sorted_payload_str = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    headers = {
+        "merchant": merchant_id,
+        "sign": _generate_heleket_signature(sorted_payload_str, api_key),
+        "Content-Type": "application/json",
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = "https://api.heleket.com/v1/payment"
+            async with session.post(url, json=payload, headers=headers) as response:
+                result = await response.json()
+                if response.status == 200 and result.get("result", {}).get("url"):
+                    return result["result"]["url"]
+                else:
+                    logger.error(f"Heleket API Error: Status {response.status}, Result: {result}")
+                    return None
+    except Exception as e:
+        logger.error(f"Heleket request failed: {e}", exc_info=True)
+        return None
+
+def _generate_heleket_signature(data_str: str, api_key: str) -> str:
+    base64_encoded = base64.b64encode(data_str.encode()).decode()
+    raw_string = f"{base64_encoded}{api_key}"
+    return hashlib.md5(raw_string.encode()).hexdigest()
 
 async def get_usdt_rub_rate() -> Decimal | None:
     url = "https://api.binance.com/api/v3/ticker/price"

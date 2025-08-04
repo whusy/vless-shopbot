@@ -1,6 +1,10 @@
 import os
 import logging
 import asyncio
+import json
+import hashlib
+import base64
+from hmac import compare_digest
 from datetime import datetime
 from functools import wraps
 from math import ceil
@@ -25,7 +29,8 @@ ALL_SETTINGS_KEYS = [
     "panel_login", "panel_password", "about_text", "terms_url", "privacy_url",
     "support_user", "support_text", "channel_url", "telegram_bot_token",
     "telegram_bot_username", "admin_telegram_id", "yookassa_shop_id",
-    "yookassa_secret_key", "sbp_enabled", "receipt_email", "cryptobot_token"
+    "yookassa_secret_key", "sbp_enabled", "receipt_email", "cryptobot_token",
+    "heleket_merchant_id", "heleket_api_key", "domain"
 ]
 
 def create_webhook_app(bot_controller_instance):
@@ -315,6 +320,46 @@ def create_webhook_app(bot_controller_instance):
             
         except Exception as e:
             logger.error(f"Error in cryptobot webhook handler: {e}", exc_info=True)
+            return 'Error', 500
+        
+    @flask_app.route('/heleket-webhook', methods=['POST'])
+    def heleket_webhook_handler():
+        try:
+            data = request.json
+            logger.info(f"Received Heleket webhook: {data}")
+
+            api_key = get_setting("heleket_api_key")
+            if not api_key: return 'Error', 500
+
+            sign = data.pop("sign", None)
+            if not sign: return 'Error', 400
+                
+            sorted_data_str = json.dumps(data, sort_keys=True, separators=(",", ":"))
+            
+            base64_encoded = base64.b64encode(sorted_data_str.encode()).decode()
+            raw_string = f"{base64_encoded}{api_key}"
+            expected_sign = hashlib.md5(raw_string.encode()).hexdigest()
+
+            if not compare_digest(expected_sign, sign):
+                logger.warning("Heleket webhook: Invalid signature.")
+                return 'Forbidden', 403
+
+            if data.get('status') in ["paid", "paid_over"]:
+                metadata_str = data.get('description')
+                if not metadata_str: return 'Error', 400
+                
+                metadata = json.loads(metadata_str)
+                
+                bot = _bot_controller.get_bot_instance()
+                loop = current_app.config.get('EVENT_LOOP')
+                payment_processor = handlers.process_successful_payment
+
+                if bot and loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(payment_processor(bot, metadata), loop)
+            
+            return 'OK', 200
+        except Exception as e:
+            logger.error(f"Error in heleket webhook handler: {e}", exc_info=True)
             return 'Error', 500
 
     return flask_app

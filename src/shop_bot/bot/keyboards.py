@@ -24,8 +24,10 @@ def create_main_menu_keyboard(user_keys: list, trial_available: bool) -> InlineK
     
     return builder.as_markup()
 
-def create_about_keyboard(terms_url: str | None, privacy_url: str | None) -> InlineKeyboardMarkup:
+def create_about_keyboard(channel_url: str | None, terms_url: str | None, privacy_url: str | None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    if channel_url:
+        builder.button(text="📰 Наш канал", url=terms_url)
     if terms_url:
         builder.button(text="📄 Условия использования", url=terms_url)
     if privacy_url:
@@ -72,6 +74,8 @@ def create_payment_method_keyboard(payment_methods: dict, action: str, key_id: i
     
     if payment_methods and payment_methods.get("yookassa"):
         builder.button(text="🏦 СБП / Банковская карта", callback_data="pay_yookassa")
+    if payment_methods and payment_methods.get("cryptobot"):
+        builder.button(text="💎 Криптовалюта", callback_data="pay_heleket")
     if payment_methods and payment_methods.get("cryptobot"):
         builder.button(text="🤖 CryptoBot", callback_data="pay_cryptobot")
 

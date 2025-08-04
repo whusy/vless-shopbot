@@ -79,6 +79,10 @@ class BotController:
 
             cryptobot_token = database.get_setting("cryptobot_token")
             cryptobot_enabled = bool(cryptobot_token)
+
+            heleket_shop_id = database.get_setting("heleket_merchant_id")
+            heleket_api_key = database.get_setting("heleket_api_key")
+            heleket_enabled = bool(heleket_api_key and heleket_shop_id)
             
             if yookassa_enabled:
                 Configuration.account_id = yookassa_shop_id
@@ -86,6 +90,7 @@ class BotController:
             
             handlers.PAYMENT_METHODS = {
                 "yookassa": yookassa_enabled,
+                "heleket": heleket_enabled,
                 "cryptobot": cryptobot_enabled
             }
             handlers.TELEGRAM_BOT_USERNAME = bot_username
