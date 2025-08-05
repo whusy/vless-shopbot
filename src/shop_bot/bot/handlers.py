@@ -565,7 +565,18 @@ def get_user_router() -> Router:
         if is_valid_email(message.text):
             await state.update_data(customer_email=message.text)
             await message.answer(f"✅ Email принят: {message.text}")
-            await show_payment_options(message, state)
+
+            data = await state.get_data()
+            await message.answer(
+                CHOOSE_PAYMENT_METHOD_MESSAGE,
+                reply_markup=keyboards.create_payment_method_keyboard(
+                    payment_methods=PAYMENT_METHODS,
+                    action=data.get('action'),
+                    key_id=data.get('key_id')
+                )
+            )
+            await state.set_state(PaymentProcess.waiting_for_payment_method)
+            logger.info(f"User {message.chat.id}: State set to waiting_for_payment_method")
         else:
             await message.answer("❌ Неверный формат email. Попробуйте еще раз.")
 
@@ -573,7 +584,18 @@ def get_user_router() -> Router:
     async def skip_email_handler(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer()
         await state.update_data(customer_email=None)
-        await show_payment_options(callback.message, state)
+
+        data = await state.get_data()
+        await callback.message.edit_text(
+            CHOOSE_PAYMENT_METHOD_MESSAGE,
+            reply_markup=keyboards.create_payment_method_keyboard(
+                payment_methods=PAYMENT_METHODS,
+                action=data.get('action'),
+                key_id=data.get('key_id')
+            )
+        )
+        await state.set_state(PaymentProcess.waiting_for_payment_method)
+        logger.info(f"User {callback.from_user.id}: State set to waiting_for_payment_method")
 
     async def show_payment_options(message: types.Message, state: FSMContext):
         data = await state.get_data()
