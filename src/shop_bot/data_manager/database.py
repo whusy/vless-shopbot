@@ -18,7 +18,9 @@ def initialize_db():
                     total_months INTEGER DEFAULT 0, trial_used BOOLEAN DEFAULT 0,
                     agreed_to_terms BOOLEAN DEFAULT 0,
                     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_banned BOOLEAN DEFAULT 0 
+                    is_banned BOOLEAN DEFAULT 0,
+                    referred_by INTEGER,
+                    referral_balance REAL DEFAULT 0
                 )
             ''')
             cursor.execute('''
@@ -84,6 +86,8 @@ def initialize_db():
                 "receipt_email": "example@example.com",
                 "telegram_bot_token": None,
                 "telegram_bot_username": None,
+                "referral_percentage": "10",
+                "referral_discount": "5",
                 "admin_telegram_id": None,
                 "yookassa_shop_id": None,
                 "yookassa_secret_key": None,
@@ -93,12 +97,35 @@ def initialize_db():
                 "heleket_api_key": None,
                 "domain": None
             }
+            _run_migrations(conn)
             for key, value in default_settings.items():
                 cursor.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES (?, ?)", (key, value))
             conn.commit()
             logging.info("Database initialized successfully.")
     except sqlite3.Error as e:
         logging.error(f"Database error on initialization: {e}")
+
+def _run_migrations(conn: sqlite3.Connection):
+    cursor = conn.cursor()
+    
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    if 'referred_by' not in columns:
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER")
+            logger.info("Migration successful: Added 'referred_by' column to 'users' table.")
+        except sqlite3.Error as e:
+            logger.error(f"Migration failed for 'referred_by' column: {e}")
+
+    if 'referral_balance' not in columns:
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN referral_balance REAL DEFAULT 0")
+            logger.info("Migration successful: Added 'referral_balance' column to 'users' table.")
+        except sqlite3.Error as e:
+            logger.error(f"Migration failed for 'referral_balance' column: {e}")
+
+    logger.info("Database migrations finished.")
 
 def create_host(name: str, url: str, user: str, passwd: str, inbound: int):
     try:
@@ -230,21 +257,40 @@ def delete_plan(plan_id: int):
     except sqlite3.Error as e:
         logging.error(f"Failed to delete plan with id {plan_id}: {e}")
 
-def register_user_if_not_exists(telegram_id: int, username: str):
+def register_user_if_not_exists(telegram_id: int, username: str, referrer_id):
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT telegram_id FROM users WHERE telegram_id = ?", (telegram_id,))
             if not cursor.fetchone():
                 cursor.execute(
-                    "INSERT INTO users (telegram_id, username, registration_date) VALUES (?, ?, ?)",
-                    (telegram_id, username, datetime.now())
+                    "INSERT INTO users (telegram_id, username, registration_date, referred_by) VALUES (?, ?, ?, ?)",
+                    (telegram_id, username, datetime.now(), referrer_id)
                 )
             else:
                 cursor.execute("UPDATE users SET username = ? WHERE telegram_id = ?", (username, telegram_id))
             conn.commit()
     except sqlite3.Error as e:
         logging.error(f"Failed to register user {telegram_id}: {e}")
+
+def add_to_referral_balance(user_id: int, amount: float):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET referral_balance = referral_balance + ? WHERE telegram_id = ?", (amount, user_id))
+            conn.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Failed to add to referral balance for user {user_id}: {e}")
+
+def get_referral_count(user_id: int) -> int:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM users WHERE referred_by = ?", (user_id,))
+            return cursor.fetchone()[0] or 0
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get referral count for user {user_id}: {e}")
+        return 0
 
 def get_user(telegram_id: int):
     try:

@@ -184,7 +184,31 @@
 					/>
 				</div>
 			</section>
-
+			<section class="settings-section">
+				<h2>Настройки Реферальной программы</h2>
+				<div class="form-group">
+					<label for="referral_percentage"
+						>Процент вознаграждения пригласившему (%):</label
+					>
+					<input
+						type="number"
+						id="referral_percentage"
+						name="referral_percentage"
+						value="{{ settings.referral_percentage or '10' }}"
+					/>
+				</div>
+				<div class="form-group">
+					<label for="referral_discount"
+						>Скидка для нового пользователя на первую покупку (%):</label
+					>
+					<input
+						type="number"
+						id="referral_discount"
+						name="referral_discount"
+						value="{{ settings.referral_discount or '5' }}"
+					/>
+				</div>
+			</section>
 			<section class="settings-section">
 				<h2>Настройки Платежных Систем</h2>
 				<h2>Настройка YooKassa</h2>

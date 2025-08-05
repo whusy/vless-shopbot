@@ -15,10 +15,11 @@ def create_main_menu_keyboard(user_keys: list, trial_available: bool) -> InlineK
 
     builder.button(text="👤 Мой профиль", callback_data="show_profile")
     builder.button(text=f"🔑 Мои ключи ({len(user_keys)})", callback_data="manage_keys")
+    builder.button(text="🤝 Реферальная программа", callback_data="show_referral_program")
     builder.button(text="🆘 Поддержка", callback_data="show_help")
     builder.button(text="ℹ️ О проекте", callback_data="show_about")
 
-    layout = [1 if trial_available else 0, 2, 2]
+    layout = [1 if trial_available else 0, 2, 1, 2]
     actual_layout = [size for size in layout if size > 0]
     builder.adjust(*actual_layout)
     

@@ -1,7 +1,7 @@
-{% extends "base.html" %} {% block title %}Dashboard - Статистика и Транзакции{%
-endblock %} {% block content %}
+{% extends "base.html" %} {% block title %}Главная страница{% endblock %} {%
+block content %}
 
-<h1>Dashboard</h1>
+<h1>Главная страница</h1>
 
 <section class="stats-section">
 	<div class="stats-grid">
@@ -16,7 +16,7 @@ endblock %} {% block content %}
 		<div class="stat-card">
 			<h3>Всего потрачено</h3>
 			<p class="stat-number">
-				{{ stats.total_spent | round(0) }} <small>RUB</small>
+				{{ stats.total_spent | round(2) }} <small>RUB</small>
 			</p>
 		</div>
 		<div class="stat-card">
@@ -64,7 +64,7 @@ endblock %} {% block content %}
 							</td>
 							<td>{{ tx.host_name }}</td>
 							<td>{{ tx.plan_name }}</td>
-							<td>{{ tx.amount_spent | round(0) }} RUB</td>
+							<td>{{ tx.amount_spent | round(2) }} RUB</td>
 							<td>{{ tx.transaction_date.split(' ')[0] }}</td>
 						</tr>
 						{% endfor %}

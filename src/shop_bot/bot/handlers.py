@@ -16,7 +16,7 @@ from aiosend import CryptoPay
 from decimal import Decimal, ROUND_HALF_UP
 
 from aiogram import Bot, Router, F, types, html
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import BufferedInputFile
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
@@ -29,7 +29,8 @@ from shop_bot.data_manager.database import (
     get_user, add_new_key, get_user_keys, update_user_stats,
     register_user_if_not_exists, get_next_key_number, get_key_by_id,
     update_key_info, set_trial_used, set_terms_agreed, get_setting, get_all_hosts,
-    get_plans_for_host, get_plan_by_id, log_transaction
+    get_plans_for_host, get_plan_by_id, log_transaction, get_referral_count,
+    add_to_referral_balance
 )
 from shop_bot.config import (
     get_profile_text, get_vpn_active_text, VPN_INACTIVE_TEXT, VPN_NO_DATA_TEXT,
@@ -96,12 +97,24 @@ def registration_required(f):
 def get_user_router() -> Router:
     user_router = Router()
 
-    @user_router.message(Command("start"))
-    async def start_handler(message: types.Message, state: FSMContext, bot: Bot):
+    @user_router.message(CommandStart())
+    async def start_handler(message: types.Message, state: FSMContext, bot: Bot, command: CommandObject):
         user_id = message.from_user.id
         username = message.from_user.username or message.from_user.full_name
-        
-        register_user_if_not_exists(user_id, username)
+        referrer_id = None
+
+        if command.args and command.args.startswith('ref_'):
+            try:
+                potential_referrer_id = int(command.args.split('_')[1])
+                if potential_referrer_id != user_id:
+                    referrer_id = potential_referrer_id
+                    logger.info(f"New user {user_id} was referred by {referrer_id}")
+            except (IndexError, ValueError):
+                logger.warning(f"Invalid referral code received: {command.args}")
+                
+        register_user_if_not_exists(user_id, username, referrer_id)
+        user_id = message.from_user.id
+        username = message.from_user.username or message.from_user.full_name
         user_data = get_user(user_id)
 
         if user_data and user_data.get('agreed_to_terms'):
@@ -206,6 +219,43 @@ def get_user_router() -> Router:
         else: vpn_status_text = VPN_NO_DATA_TEXT
         final_text = get_profile_text(username, total_spent, total_months, vpn_status_text)
         await callback.message.edit_text(final_text, reply_markup=keyboards.create_back_to_menu_keyboard())
+
+    @user_router.callback_query(F.data == "show_referral_program")
+    @registration_required
+    async def referral_program_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        user_data = get_user(user_id)
+        bot_username = (await callback.bot.get_me()).username
+        support_user = get_setting("support_user")
+        
+        referral_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
+        referral_count = get_referral_count(user_id)
+        balance = user_data.get('referral_balance', 0)
+        
+        withdrawal_info = ""
+        if support_user:
+            withdrawal_info = (
+                f"\n\nДля вывода средств с баланса, пожалуйста, напишите в поддержку: {support_user}"
+            )
+        else:
+            withdrawal_info = (
+                "\n\nКонтакт для вывода средств не настроен. Обратитесь к администратору."
+            )
+
+        text = (
+            "🤝 <b>Реферальная программа</b>\n\n"
+            "Приглашайте друзей и получайте вознаграждение с **каждой** их покупки!\n\n"
+            f"<b>Ваша реферальная ссылка:</b>\n<code>{referral_link}</code>\n\n"
+            f"<b>Приглашено пользователей:</b> {referral_count}\n"
+            f"<b>Ваш баланс:</b> {balance:.2f} RUB"
+        ) + withdrawal_info
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=keyboards.create_back_to_menu_keyboard(),
+            disable_web_page_preview=True
+        )
 
     @user_router.callback_query(F.data == "show_about")
     @registration_required
@@ -527,24 +577,43 @@ def get_user_router() -> Router:
 
     async def show_payment_options(message: types.Message, state: FSMContext):
         data = await state.get_data()
-        try:
-            await message.edit_text(
-                CHOOSE_PAYMENT_METHOD_MESSAGE,
-                reply_markup=keyboards.create_payment_method_keyboard(
-                    payment_methods=PAYMENT_METHODS,
-                    action=data.get('action'),
-                    key_id=data.get('key_id')
-                )
+        user_data = get_user(message.chat.id)
+        plan = get_plan_by_id(data.get('plan_id'))
+        
+        if not plan:
+            await message.edit_text("❌ Ошибка: Тариф не найден.")
+            await state.clear()
+            return
+
+        price = Decimal(str(plan['price']))
+        final_price = price
+        discount_applied = False
+        message_text = CHOOSE_PAYMENT_METHOD_MESSAGE
+
+        if user_data.get('referred_by') and user_data.get('total_spent', 0) == 0:
+            discount_percentage_str = get_setting("referral_discount") or "0"
+            discount_percentage = Decimal(discount_percentage_str)
+            
+            if discount_percentage > 0:
+                discount_amount = (price * discount_percentage / 100).quantize(Decimal("0.01"))
+                final_price = price - discount_amount
+
+                message_text = (
+                    f"🎉 Как приглашенному пользователю, на вашу первую покупку предоставляется скидка {discount_percentage_str}%!\n"
+                    f"Старая цена: <s>{price:.2f} RUB</s>\n"
+                    f"<b>Новая цена: {final_price:.2f} RUB</b>\n\n"
+                ) + CHOOSE_PAYMENT_METHOD_MESSAGE
+
+        await state.update_data(final_price=float(final_price))
+
+        await message.edit_text(
+            message_text,
+            reply_markup=keyboards.create_payment_method_keyboard(
+                payment_methods=PAYMENT_METHODS,
+                action=data.get('action'),
+                key_id=data.get('key_id')
             )
-        except TelegramBadRequest:
-            await message.answer(
-                CHOOSE_PAYMENT_METHOD_MESSAGE,
-                reply_markup=keyboards.create_payment_method_keyboard(
-                    payment_methods=PAYMENT_METHODS,
-                    action=data.get('action'),
-                    key_id=data.get('key_id')
-                )
-            )
+        )
         await state.set_state(PaymentProcess.waiting_for_payment_method)
         
     @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "back_to_email_prompt")
@@ -563,6 +632,7 @@ def get_user_router() -> Router:
         
         data = await state.get_data()
         
+        price_rub = data.get('final_price')
         plan_id = data.get('plan_id')
         customer_email = data.get('customer_email')
         host_name = data.get('host_name')
@@ -578,7 +648,7 @@ def get_user_router() -> Router:
             await state.clear()
             return
 
-        price_rub, months = plan['price'], plan['months']
+        months = plan['months']
         user_id = callback.from_user.id
         
         receipt = None
@@ -649,7 +719,7 @@ def get_user_router() -> Router:
             await state.clear()
             return
             
-        price_rub = Decimal(str(plan['price']))
+        price_rub = Decimal(str(data.get('final_price')))
         months = plan['months']
         
         try:
@@ -694,8 +764,6 @@ def get_user_router() -> Router:
             await callback.message.edit_text(f"❌ Не удалось создать счет для оплаты криптовалютой.\n\n<pre>Ошибка: {e}</pre>")
             await state.clear()
         
-
-
     @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_heleket")
     async def create_heleket_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("Создаю счет Heleket...")
@@ -708,7 +776,7 @@ def get_user_router() -> Router:
             await state.clear()
             return
             
-        price_rub = float(plan['price'])
+        price_rub = data.get('final_price')
         
         pay_url = await _create_heleket_payment_request(
             user_id=callback.from_user.id,
@@ -743,6 +811,44 @@ async def process_successful_onboarding(callback: types.CallbackQuery, state: FS
     await callback.message.delete()
     await callback.message.answer("Приятного использования!", reply_markup=keyboards.main_reply_keyboard)
     await show_main_menu(callback.message)
+
+async def notify_admin_of_purchase(bot: Bot, metadata: dict):
+    if not ADMIN_ID:
+        logger.warning("Admin notification skipped: ADMIN_ID is not set.")
+        return
+
+    try:
+        user_id = metadata.get('user_id')
+        months = metadata.get('months')
+        price = float(metadata.get('price'))
+        host_name = metadata.get('host_name')
+        plan_id = metadata.get('plan_id')
+        payment_method = metadata.get('payment_method', 'Unknown')
+        
+        user_info = get_user(user_id)
+        plan_info = get_plan_by_id(plan_id)
+
+        username = user_info.get('username', 'N/A') if user_info else 'N/A'
+        plan_name = plan_info.get('plan_name', f'{months} мес.') if plan_info else f'{months} мес.'
+
+        message_text = (
+            "🎉 **Новая покупка!** 🎉\n\n"
+            f"👤 **Пользователь:** @{username} (ID: `{user_id}`)\n"
+            f"🌍 **Сервер:** {host_name}\n"
+            f"📄 **Тариф:** {plan_name}\n"
+            f"💰 **Сумма:** {price:.2f} RUB\n"
+            f"💳 **Способ оплаты:** {payment_method}"
+        )
+
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=message_text,
+            parse_mode='Markdown'
+        )
+        logger.info(f"Admin notification sent for a new purchase by user {user_id}.")
+
+    except Exception as e:
+        logger.error(f"Failed to send admin notification for purchase: {e}", exc_info=True)
 
 async def _create_heleket_payment_request(user_id: int, price: float, months: int, host_name: str, state_data: dict) -> str | None:
     merchant_id = get_setting("heleket_merchant_id")
@@ -881,6 +987,29 @@ async def process_successful_payment(bot: Bot, metadata: dict):
         elif action == "extend":
             update_key_info(key_id, result['client_uuid'], result['expiry_timestamp_ms'])
         
+        price = float(metadata.get('price')) 
+
+        user_data = get_user(user_id)
+        referrer_id = user_data.get('referred_by')
+
+        if referrer_id:
+            percentage = Decimal(get_setting("referral_percentage") or "0")
+            
+            reward = (Decimal(str(price)) * percentage / 100).quantize(Decimal("0.01"))
+            
+            if float(reward) > 0:
+                add_to_referral_balance(referrer_id, float(reward))
+                
+                try:
+                    referrer_username = user_data.get('username', 'пользователь')
+                    await bot.send_message(
+                        referrer_id,
+                        f"🎉 Ваш реферал @{referrer_username} совершил покупку на сумму {price:.2f} RUB!\n"
+                        f"💰 На ваш баланс начислено вознаграждение: {reward:.2f} RUB."
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not send referral reward notification to {referrer_id}: {e}")
+
         update_user_stats(user_id, price, months)
         
         user_info = get_user(user_id)
@@ -917,6 +1046,8 @@ async def process_successful_payment(bot: Bot, metadata: dict):
             reply_markup=keyboards.create_key_info_keyboard(key_id)
         )
 
+        await notify_admin_of_purchase(bot, metadata)
+        
     except Exception as e:
         logger.error(f"Error processing payment for user {user_id} on host {host_name}: {e}", exc_info=True)
         await processing_message.edit_text("❌ Ошибка при выдаче ключа.")
