@@ -20,7 +20,7 @@ from shop_bot.data_manager.database import (
     create_host, delete_host, create_plan, delete_plan, get_user_count,
     get_total_keys_count, get_total_spent_sum, get_daily_stats_for_charts,
     get_recent_transactions, get_paginated_transactions, get_all_users, get_user_keys,
-    ban_user, unban_user, delete_user_keys, get_setting
+    ban_user, unban_user, delete_user_keys, get_setting, find_and_complete_ton_transaction
 )
 
 _bot_controller = None
@@ -30,7 +30,8 @@ ALL_SETTINGS_KEYS = [
     "support_user", "support_text", "channel_url", "telegram_bot_token",
     "telegram_bot_username", "admin_telegram_id", "yookassa_shop_id",
     "yookassa_secret_key", "sbp_enabled", "receipt_email", "cryptobot_token",
-    "heleket_merchant_id", "heleket_api_key", "domain"
+    "heleket_merchant_id", "heleket_api_key", "domain", "referral_percentage",
+    "referral_discount", "ton_wallet_address", "tonapi_key"
 ]
 
 def create_webhook_app(bot_controller_instance):
@@ -361,6 +362,37 @@ def create_webhook_app(bot_controller_instance):
             return 'OK', 200
         except Exception as e:
             logger.error(f"Error in heleket webhook handler: {e}", exc_info=True)
+            return 'Error', 500
+        
+    @flask_app.route('/ton-webhook', methods=['POST'])
+    def ton_webhook_handler():
+        try:
+            data = request.json
+            logger.info(f"Received TonAPI webhook: {data}")
+
+            if 'tx_id' in data:
+                account_id = data.get('account_id')
+                for tx in data.get('in_progress_txs', []) + data.get('txs', []):
+                    in_msg = tx.get('in_msg')
+                    if in_msg and in_msg.get('decoded_comment'):
+                        payment_id = in_msg['decoded_comment']
+                        amount_nano = int(in_msg.get('value', 0))
+                        amount_ton = float(amount_nano / 1_000_000_000)
+
+                        metadata = find_and_complete_ton_transaction(payment_id, amount_ton)
+                        
+                        if metadata:
+                            logger.info(f"TON Payment successful for payment_id: {payment_id}")
+                            bot = _bot_controller.get_bot_instance()
+                            loop = current_app.config.get('EVENT_LOOP')
+                            payment_processor = handlers.process_successful_payment
+
+                            if bot and loop and loop.is_running():
+                                asyncio.run_coroutine_threadsafe(payment_processor(bot, metadata), loop)
+            
+            return 'OK', 200
+        except Exception as e:
+            logger.error(f"Error in ton webhook handler: {e}", exc_info=True)
             return 'Error', 500
 
     return flask_app
