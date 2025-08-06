@@ -31,7 +31,7 @@ ALL_SETTINGS_KEYS = [
     "telegram_bot_username", "admin_telegram_id", "yookassa_shop_id",
     "yookassa_secret_key", "sbp_enabled", "receipt_email", "cryptobot_token",
     "heleket_merchant_id", "heleket_api_key", "domain", "referral_percentage",
-    "referral_discount", "ton_wallet_address", "tonapi_key"
+    "referral_discount", "ton_wallet_address", "tonapi_key", "force_subscription"
 ]
 
 def create_webhook_app(bot_controller_instance):
@@ -153,8 +153,8 @@ def create_webhook_app(bot_controller_instance):
             for key in ALL_SETTINGS_KEYS:
                 if key == 'panel_password': continue
 
-                if key == 'sbp_enabled':
-                    value = 'true' if 'sbp_enabled' in request.form else 'false'
+                if key in ['sbp_enabled', 'force_subscription']:
+                    value = 'true' if key in request.form else 'false'
                     update_setting(key, value)
                 elif key in request.form:
                     update_setting(key, request.form.get(key, ''))

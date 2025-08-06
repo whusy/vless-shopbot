@@ -83,6 +83,7 @@ def initialize_db():
                 "support_user": None,
                 "support_text": None,
                 "channel_url": None,
+                "force_subscription": "true",
                 "receipt_email": "example@example.com",
                 "telegram_bot_token": None,
                 "telegram_bot_username": None,

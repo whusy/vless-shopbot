@@ -135,9 +135,20 @@ def get_user_router() -> Router:
             await show_main_menu(message)
             return
 
+        is_subscription_forced = get_setting("force_subscription") == "true"
+        
+        show_welcome_screen = (is_subscription_forced and channel_url) or (terms_url and privacy_url)
+
+        if not show_welcome_screen:
+            set_terms_agreed(user_id)
+            await show_main_menu(message)
+            return
+
         welcome_parts = ["<b>Добро пожаловать!</b>\n"]
-        if channel_url:
+        
+        if is_subscription_forced and channel_url:
             welcome_parts.append("Для доступа ко всем функциям, пожалуйста, подпишитесь на наш канал.")
+        
         if terms_url and privacy_url:
             welcome_parts.append(
                 "Также необходимо ознакомиться и принять наши "
@@ -150,7 +161,7 @@ def get_user_router() -> Router:
         
         await message.answer(
             final_text,
-            reply_markup=keyboards.create_welcome_keyboard(channel_url),
+            reply_markup=keyboards.create_welcome_keyboard(channel_url if is_subscription_forced else None),
             disable_web_page_preview=True
         )
         await state.set_state(Onboarding.waiting_for_subscription_and_agreement)
