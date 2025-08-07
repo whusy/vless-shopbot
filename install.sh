@@ -10,28 +10,45 @@ handle_error() {
 }
 trap 'handle_error $LINENO' ERR
 
+read_input() {
+    read -p "$1" "$2" < /dev/tty
+}
 
-echo -e "${GREEN}--- Запуск установки VLESS Shop Bot с автоматической настройкой SSL ---${NC}"
+read_input_yn() {
+    read -p "$1" -n 1 -r REPLY < /dev/tty
+    echo
+}
 
 REPO_URL="https://github.com/evansvl/vless-shopbot.git"
 PROJECT_DIR="vless-shopbot"
 NGINX_CONF_FILE="/etc/nginx/sites-available/${PROJECT_DIR}.conf"
 
+echo -e "${GREEN}--- Запуск скрипта установки/обновления VLESS Shop Bot ---${NC}"
+
 if [ -f "$NGINX_CONF_FILE" ]; then
     echo -e "\n${CYAN}Обнаружена существующая конфигурация. Скрипт запущен в режиме обновления.${NC}"
+
     if [ ! -d "$PROJECT_DIR" ]; then
-        echo -e "${RED}Ошибка: Папка проекта '${PROJECT_DIR}' не найдена! Удалите конфиг Nginx и запустите скрипт заново: sudo rm ${NGINX_CONF_FILE}${NC}"
+        echo -e "${RED}Ошибка: Конфигурация Nginx существует, но папка проекта '${PROJECT_DIR}' не найдена!${NC}"
+        echo -e "${YELLOW}Возможно, вы переместили или удалили папку. Для исправления удалите файл конфигурации Nginx и запустите установку заново:${NC}"
+        echo -e "sudo rm ${NGINX_CONF_FILE}"
         exit 1
     fi
+
     cd $PROJECT_DIR
+
     echo -e "\n${CYAN}Шаг 1: Обновление кода из репозитория Git...${NC}"
     git pull
     echo -e "${GREEN}✔ Код успешно обновлен.${NC}"
+
     echo -e "\n${CYAN}Шаг 2: Пересборка и перезапуск Docker-контейнеров...${NC}"
     sudo docker-compose down --remove-orphans && sudo docker-compose up -d --build
+    
     echo -e "\n\n${GREEN}==============================================${NC}"
     echo -e "${GREEN}      🎉 Обновление успешно завершено! 🎉      ${NC}"
     echo -e "${GREEN}==============================================${NC}"
+    echo -e "\nБот был обновлен до последней версии и перезапущен."
+
     exit 0
 fi
 
@@ -47,6 +64,7 @@ install_package() {
         echo -e "${GREEN}✔ $1 уже установлен.${NC}"
     fi
 }
+
 install_package "git" "git"
 install_package "docker" "docker.io"
 install_package "docker-compose" "docker-compose"
@@ -72,27 +90,26 @@ echo -e "${GREEN}✔ Репозиторий готов.${NC}"
 
 echo -e "\n${CYAN}Шаг 3: Настройка домена и получение SSL-сертификатов...${NC}"
 
-read -p "Введите ваш домен (например, my-vpn-shop.com): " USER_INPUT_DOMAIN
+read_input "Введите ваш домен (например, my-vpn-shop.com): " USER_INPUT_DOMAIN
 
-# СРАЗУ проверяем, что ввод не пустой.
+if [ -z "$USER_INPUT_DOMAIN" ]; then
     echo -e "${RED}Ошибка: Домен не может быть пустым. Установка прервана.${NC}"
     exit 1
 fi
 
 DOMAIN=$(echo "$USER_INPUT_DOMAIN" | sed -e 's%^https\?://%%' -e 's%/.*$%%')
 
-read -p "Введите ваш email (для регистрации SSL-сертификатов Let's Encrypt): " EMAIL
+read_input "Введите ваш email (для регистрации SSL-сертификатов Let's Encrypt): " EMAIL
 
 echo -e "${GREEN}✔ Домен для работы: ${DOMAIN}${NC}"
 SERVER_IP=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
 DOMAIN_IP=$(dig +short $DOMAIN @8.8.8.8 | tail -n1)
-
 echo -e "${YELLOW}IP вашего сервера: $SERVER_IP${NC}"
 echo -e "${YELLOW}IP, на который указывает домен '$DOMAIN': $DOMAIN_IP${NC}"
 
 if [ "$SERVER_IP" != "$DOMAIN_IP" ]; then
     echo -e "${RED}ВНИМАНИЕ: DNS-запись для домена $DOMAIN не указывает на IP-адрес этого сервера!${NC}"
-    read -p "Продолжить установку? (y/n): " -n 1 -r; echo
+    read_input_yn "Продолжить установку? (y/n): "
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then echo "Установка прервана."; exit 1; fi
 fi
 
@@ -113,8 +130,8 @@ else
 fi
 
 echo -e "\n${CYAN}Шаг 4: Настройка Nginx...${NC}"
-read -p "Какой порт вы будете использовать для вебхуков YooKassa? (443 или 8443, рекомендуется 443): " YOOKASSA_PORT
-YOOKASSA_PORT=${YOOKASSA_PORT:-443}
+read_input "Какой порт вы будете использовать для вебхуков YooKassa? (443 или 8443, рекомендуется 443): " YOOKASSA_PORT_INPUT
+YOOKASSA_PORT=${YOOKASSA_PORT_INPUT:-443}
 
 NGINX_ENABLED_FILE="/etc/nginx/sites-enabled/${PROJECT_DIR}.conf"
 
@@ -150,7 +167,6 @@ sudo nginx -t && sudo systemctl reload nginx
 
 echo -e "\n${CYAN}Шаг 5: Сборка и запуск Docker-контейнера...${NC}"
 if [ "$(sudo docker-compose ps -q)" ]; then
-    echo -e "${YELLOW}Обнаружены работающие контейнеры. Останавливаем...${NC}"
     sudo docker-compose down
 fi
 sudo docker-compose up -d --build
@@ -162,7 +178,7 @@ echo -e "\nВеб-панель доступна по адресу:"
 echo -e "  - ${YELLOW}https://${DOMAIN}:${YOOKASSA_PORT}/login${NC}"
 echo -e "\nДанные для первого входа:"
 echo -e "  - Логин:   ${CYAN}admin${NC}"
-e_info "  - Пароль:  ${CYAN}admin${NC}"
+echo -e "  - Пароль:  ${CYAN}admin${NC}"
 echo -e "\n${RED}ПЕРВЫЕ ШАГИ:${NC}"
 echo -e "1. Войдите в панель и ${RED}сразу же смените логин и пароль${NC}."
 echo -e "2. На странице 'Настройки' введите ваш Telegram токен, username бота и ваш Telegram ID."
