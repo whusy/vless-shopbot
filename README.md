@@ -9,6 +9,7 @@
 ![GitHub License](https://img.shields.io/github/license/evansvl/vless-shopbot)
 ![GitHub Release](https://img.shields.io/github/v/release/evansvl/vless-shopbot)
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/evansvl/vless-shopbot)
+![GitHub Stars](https://img.shields.io/github/stars/evansvl/vless-shopbot)
 
 </div>
 
