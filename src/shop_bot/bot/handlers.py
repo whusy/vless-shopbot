@@ -977,7 +977,7 @@ def get_user_router() -> Router:
             
             logger.info(f"Creating Crypto Pay invoice for user {user_id}. Plan price: {price_rub} RUB. Converted to: {price_usdt} USDT.")
 
-            crypto = CryptoPay(cryptobot_token, TESTNET)
+            crypto = CryptoPay(cryptobot_token)
             
             payload_data = f"{user_id}:{months}:{float(price_rub)}:{action}:{key_id}:{host_name}:{plan_id}:{customer_email}:CryptoBot"
 
