@@ -1,20 +1,65 @@
+#!/bin/bash
+
+# --- Цвета для вывода ---
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# --- Переменные проекта ---
+REPO_URL="https://github.com/evansvl/vless-shopbot.git"
+PROJECT_DIR="vless-shopbot"
+NGINX_CONF_FILE="/etc/nginx/sites-available/${PROJECT_DIR}.conf"
+
+# --- Функция обработки ошибок ---
 handle_error() {
     echo -e "\n${RED}Ошибка на строке $1. Установка прервана.${NC}"
     exit 1
 }
-
 trap 'handle_error $LINENO' ERR
 
-echo -e "${GREEN}--- Запуск установки VLESS Shop Bot с автоматической настройкой SSL ---${NC}"
+
+# --- ОСНОВНАЯ ЛОГИКА ---
+
+echo -e "${GREEN}--- Запуск скрипта установки/обновления VLESS Shop Bot ---${NC}"
+
+# --- БЛОК ОБНОВЛЕНИЯ ---
+# Проверяем, существует ли конфигурация Nginx от предыдущей установки.
+if [ -f "$NGINX_CONF_FILE" ]; then
+    echo -e "\n${CYAN}Обнаружена существующая конфигурация. Скрипт запущен в режиме обновления.${NC}"
+
+    if [ ! -d "$PROJECT_DIR" ]; then
+        echo -e "${RED}Ошибка: Конфигурация Nginx существует, но папка проекта '${PROJECT_DIR}' не найдена!${NC}"
+        echo -e "${YELLOW}Возможно, вы переместили или удалили папку. Для исправления удалите файл конфигурации Nginx и запустите установку заново:${NC}"
+        echo -e "sudo rm ${NGINX_CONF_FILE}"
+        exit 1
+    fi
+
+    cd $PROJECT_DIR
+
+    echo -e "\n${CYAN}Шаг 1: Обновление кода из репозитория Git...${NC}"
+    git pull
+    echo -e "${GREEN}✔ Код успешно обновлен.${NC}"
+
+    echo -e "\n${CYAN}Шаг 2: Пересборка и перезапуск Docker-контейнеров...${NC}"
+    sudo docker-compose down --remove-orphans && sudo docker-compose up -d --build
+    
+    echo -e "\n\n${GREEN}==============================================${NC}"
+    echo -e "${GREEN}      🎉 Обновление успешно завершено! 🎉      ${NC}"
+    echo -e "${GREEN}==============================================${NC}"
+    echo -e "\nБот был обновлен до последней версии и перезапущен."
+
+    # Успешно выходим из скрипта после обновления
+    exit 0
+fi
+
+
+# --- БЛОК ПЕРВОНАЧАЛЬНОЙ УСТАНОВКИ ---
+# Этот блок выполняется, только если конфигурация не была найдена.
+echo -e "\n${YELLOW}Существующая конфигурация не найдена. Запускается первоначальная установка...${NC}"
 
 echo -e "\n${CYAN}Шаг 1: Установка системных зависимостей...${NC}"
-
 install_package() {
     if ! command -v $1 &> /dev/null; then
         echo -e "${YELLOW}Утилита '$1' не найдена. Устанавливаем...${NC}"
@@ -24,13 +69,12 @@ install_package() {
         echo -e "${GREEN}✔ $1 уже установлен.${NC}"
     fi
 }
-
 install_package "git" "git"
 install_package "docker" "docker.io"
 install_package "docker-compose" "docker-compose"
 install_package "nginx" "nginx"
 install_package "curl" "curl"
-install_package "certbot" "certbot python3"
+install_package "certbot" "certbot python3-certbot-nginx" # Используем плагин для Nginx
 
 if ! sudo systemctl is-active --quiet docker; then
     echo -e "${YELLOW}Сервис Docker не запущен. Запускаем и добавляем в автозагрузку...${NC}"
@@ -45,9 +89,6 @@ if ! sudo systemctl is-active --quiet nginx; then
 fi
 echo -e "${GREEN}✔ Все системные зависимости установлены.${NC}"
 
-REPO_URL="https://github.com/evansvl/vless-shopbot.git"
-PROJECT_DIR="vless-shopbot"
-
 echo -e "\n${CYAN}Шаг 2: Клонирование репозитория...${NC}"
 if [ -d "$PROJECT_DIR" ]; then
     echo -e "${YELLOW}Папка '$PROJECT_DIR' уже существует. Пропускаем клонирование.${NC}"
@@ -58,13 +99,8 @@ cd $PROJECT_DIR
 echo -e "${GREEN}✔ Репозиторий готов.${NC}"
 
 echo -e "\n${CYAN}Шаг 3: Настройка домена и получение SSL-сертификатов...${NC}"
-
-read -p "Введите ваш домен (например, my-vpn-shop.com): " RAW_DOMAIN
+read -p "Введите ваш домен (например, my-vpn-shop.com): " DOMAIN
 read -p "Введите ваш email (для регистрации SSL-сертификатов Let's Encrypt): " EMAIL
-
-DOMAIN_NO_PROTOCOL=$(echo $RAW_DOMAIN | sed -e 's%^https\?://%%')
-DOMAIN_NO_PATH=$(echo $DOMAIN_NO_PROTOCOL | cut -d'/' -f1)
-DOMAIN=$(echo $DOMAIN_NO_PATH | cut -d':' -f1)
 
 if [ -z "$DOMAIN" ]; then
     echo -e "${RED}Ошибка: Домен не может быть пустым. Установка прервана.${NC}"
@@ -72,58 +108,35 @@ if [ -z "$DOMAIN" ]; then
 fi
 
 echo -e "${GREEN}✔ Домен для работы: ${DOMAIN}${NC}"
-
 SERVER_IP=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
 DOMAIN_IP=$(dig +short $DOMAIN @8.8.8.8 | tail -n1)
-
 echo -e "${YELLOW}IP вашего сервера: $SERVER_IP${NC}"
 echo -e "${YELLOW}IP, на который указывает домен '$DOMAIN': $DOMAIN_IP${NC}"
-
-if [ -z "$DOMAIN_IP" ]; then
-    echo -e "${RED}ВНИМАНИЕ: Не удалось определить IP-адрес для домена $DOMAIN. Убедитесь, что DNS-запись существует и уже обновилась.${NC}"
-    read -p "Продолжить установку? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Установка прервана."
-        exit 1
-    fi
-fi
-
 if [ "$SERVER_IP" != "$DOMAIN_IP" ]; then
     echo -e "${RED}ВНИМАНИЕ: DNS-запись для домена $DOMAIN не указывает на IP-адрес этого сервера!${NC}"
-    read -p "Продолжить установку? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Установка прервана."
-        exit 1
-    fi
+    read -p "Продолжить установку? (y/n): " -n 1 -r; echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then echo "Установка прервана."; exit 1; fi
 fi
 
 if command -v ufw &> /dev/null && sudo ufw status | grep -q 'Status: active'; then
-    echo -e "${YELLOW}Обнаружен активный файрвол (ufw). Открываем порты 80 и 443...${NC}"
+    echo -e "${YELLOW}Обнаружен активный файрвол (ufw). Открываем порты...${NC}"
     sudo ufw allow 80/tcp
     sudo ufw allow 443/tcp
-    sudo ufw allow 1488/tcp
-    sudo ufw allow 8443/tcp
+    sudo ufw allow 1488/tcp # Порт, на котором слушает бот
+    sudo ufw allow 8443/tcp # Альтернативный порт для вебхуков
 fi
 
 if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
-    echo -e "${GREEN}✔ SSL-сертификаты для домена $DOMAIN уже существуют. Пропускаем получение.${NC}"
+    echo -e "${GREEN}✔ SSL-сертификаты для домена $DOMAIN уже существуют.${NC}"
 else
-    echo -e "${YELLOW}Получаем SSL-сертификаты для $DOMAIN...${NC}"
-    sudo systemctl stop nginx
-    sudo certbot certonly --standalone -d $DOMAIN --email $EMAIL --agree-tos --non-interactive
-    sudo systemctl start nginx
-    echo -e "${GREEN}✔ SSL-сертификаты успешно получены.${NC}"
+    echo -e "${YELLOW}Получаем SSL-сертификаты для $DOMAIN (используя плагин Nginx)...${NC}"
+    sudo certbot --nginx -d $DOMAIN --email $EMAIL --agree-tos --non-interactive --redirect
+    echo -e "${GREEN}✔ SSL-сертификаты успешно получены и Nginx настроен на редирект.${NC}"
 fi
 
-echo -e "\n${CYAN}Шаг 4: Настройка Nginx...${NC}"
-
+echo -e "\n${CYAN}Шаг 4: Настройка проксирования в Nginx...${NC}"
 read -p "Какой порт вы будете использовать для вебхуков YooKassa? (443 или 8443, рекомендуется 443): " YOOKASSA_PORT
 YOOKASSA_PORT=${YOOKASSA_PORT:-443}
-
-NGINX_CONF_FILE="/etc/nginx/sites-available/$PROJECT_DIR.conf"
-NGINX_ENABLED_FILE="/etc/nginx/sites-enabled/$PROJECT_DIR.conf"
 
 echo -e "Создаем конфигурацию Nginx..."
 sudo bash -c "cat > $NGINX_CONF_FILE" <<EOF
@@ -135,28 +148,21 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     location / {
-        try_files $uri $uri/ @backend;
-    }
-    
-    location @backend {
         proxy_pass http://127.0.0.1:1488;
-        
-        # Standard headers for proxying
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
 
-if [ ! -f "$NGINX_ENABLED_FILE" ]; then
-    sudo ln -s $NGINX_CONF_FILE $NGINX_ENABLED_FILE
+if [ ! -f "/etc/nginx/sites-enabled/${PROJECT_DIR}.conf" ]; then
+    sudo ln -s $NGINX_CONF_FILE "/etc/nginx/sites-enabled/${PROJECT_DIR}.conf"
 fi
 
 echo -e "${GREEN}✔ Конфигурация Nginx создана.${NC}"
