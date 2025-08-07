@@ -9,6 +9,7 @@
 ![GitHub License](https://img.shields.io/github/license/evansvl/vless-shopbot)
 ![GitHub Release](https://img.shields.io/github/v/release/evansvl/vless-shopbot)
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/evansvl/vless-shopbot)
+![GitHub Stars](https://img.shields.io/github/stars/evansvl/vless-shopbot?style=flat)
 
 </div>
 
@@ -158,9 +159,9 @@ docker-compose down && docker-compose up -d --build
 
 ## Поддержать разработку
 
-**Tinkoff:** `https://www.tbank.ru/cf/75XhEpb1bfR`
+**СБП/Карта РФ:** https://yookassa.ru/my/i/aJRiTyq5D3VB/l
 
-**CryptoBot:** `https://t.me/send?start=IVftnggXmRv8`
+**CryptoBot:** https://t.me/send?start=IVftnggXmRv8
 
 **TON:** `UQAtdMEig3Wl_D3FNx4RU3RhxnoJI3IizGxrrNj3O8Q-fDpK`
 
