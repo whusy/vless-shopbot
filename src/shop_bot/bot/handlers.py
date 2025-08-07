@@ -7,6 +7,7 @@ import aiohttp
 import hashlib
 import json
 import base64
+import asyncio
 from urllib.parse import urlencode
 from hmac import compare_digest
 from functools import wraps
@@ -17,12 +18,13 @@ from aiosend import CryptoPay, TESTNET
 from decimal import Decimal, ROUND_HALF_UP
 
 from aiogram import Bot, Router, F, types, html
-from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.types import BufferedInputFile
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.enums import ChatMemberStatus
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from shop_bot.bot import keyboards
 from shop_bot.modules import xui_api
@@ -31,8 +33,9 @@ from shop_bot.data_manager.database import (
     register_user_if_not_exists, get_next_key_number, get_key_by_id,
     update_key_info, set_trial_used, set_terms_agreed, get_setting, get_all_hosts,
     get_plans_for_host, get_plan_by_id, log_transaction, get_referral_count,
-    add_to_referral_balance, create_pending_transaction, 
+    add_to_referral_balance, create_pending_transaction, get_all_users
 )
+
 from shop_bot.config import (
     get_profile_text, get_vpn_active_text, VPN_INACTIVE_TEXT, VPN_NO_DATA_TEXT,
     get_key_info_text, CHOOSE_PAYMENT_METHOD_MESSAGE, get_purchase_success_text
@@ -58,6 +61,13 @@ class PaymentProcess(StatesGroup):
     waiting_for_email = State()
     waiting_for_payment_method = State()
 
+class Broadcast(StatesGroup):
+    waiting_for_message = State()
+    waiting_for_button_option = State()
+    waiting_for_button_text = State()
+    waiting_for_button_url = State()
+    waiting_for_confirmation = State()
+
 def is_valid_email(email: str) -> bool:
     pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(pattern, email) is not None
@@ -68,9 +78,10 @@ async def show_main_menu(message: types.Message, edit_message: bool = False):
     user_keys = get_user_keys(user_id)
     
     trial_available = not (user_db_data and user_db_data.get('trial_used'))
+    is_admin = str(user_id) == ADMIN_ID
 
     text = "🏠 <b>Главное меню</b>\n\nВыберите действие:"
-    keyboard = keyboards.create_main_menu_keyboard(user_keys, trial_available)
+    keyboard = keyboards.create_main_menu_keyboard(user_keys, trial_available, is_admin)
     
     if edit_message:
         try:
@@ -231,6 +242,171 @@ def get_user_router() -> Router:
         else: vpn_status_text = VPN_NO_DATA_TEXT
         final_text = get_profile_text(username, total_spent, total_months, vpn_status_text)
         await callback.message.edit_text(final_text, reply_markup=keyboards.create_back_to_menu_keyboard())
+
+    @user_router.callback_query(F.data == "start_broadcast")
+    @registration_required
+    async def start_broadcast_handler(callback: types.CallbackQuery, state: FSMContext):
+        if str(callback.from_user.id) != ADMIN_ID:
+            await callback.answer("У вас нет прав.", show_alert=True)
+            return
+        
+        await callback.answer()
+        await callback.message.edit_text(
+            "Пришлите сообщение, которое вы хотите разослать всем пользователям.\n"
+            "Вы можете использовать форматирование (<b>жирный</b>, <i>курсив</i>).\n"
+            "Также поддерживаются фото, видео и документы.\n",
+            reply_markup=keyboards.create_broadcast_cancel_keyboard()
+        )
+        await state.set_state(Broadcast.waiting_for_message)
+
+    @user_router.message(Broadcast.waiting_for_message)
+    async def broadcast_message_received_handler(message: types.Message, state: FSMContext):
+        await state.update_data(message_to_send=message.model_dump_json())
+        
+        await message.answer(
+            "Сообщение получено. Хотите добавить к нему кнопку со ссылкой?",
+            reply_markup=keyboards.create_broadcast_options_keyboard()
+        )
+        await state.set_state(Broadcast.waiting_for_button_option)
+
+    @user_router.callback_query(Broadcast.waiting_for_button_option, F.data == "broadcast_add_button")
+    async def add_button_prompt_handler(callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer()
+        await callback.message.edit_text(
+            "Хорошо. Теперь отправьте мне текст для кнопки.",
+            reply_markup=keyboards.create_broadcast_cancel_keyboard()
+        )
+        await state.set_state(Broadcast.waiting_for_button_text)
+
+    @user_router.message(Broadcast.waiting_for_button_text)
+    async def button_text_received_handler(message: types.Message, state: FSMContext):
+        await state.update_data(button_text=message.text)
+        await message.answer(
+            "Текст кнопки получен. Теперь отправьте ссылку (URL), куда она будет вести.",
+            reply_markup=keyboards.create_broadcast_cancel_keyboard()
+        )
+        await state.set_state(Broadcast.waiting_for_button_url)
+
+    @user_router.message(Broadcast.waiting_for_button_url)
+    async def button_url_received_handler(message: types.Message, state: FSMContext, bot: Bot):
+        url_to_check = message.text
+
+        is_valid = await is_url_reachable(url_to_check)
+        
+        if not is_valid:
+            await message.answer(
+                "❌ **Ссылка не прошла проверку.**\n\n"
+                "Пожалуйста, убедитесь, что:\n"
+                "1. Ссылка начинается с `http://` или `https://`.\n"
+                "2. Доменное имя корректно (например, `example.com`).\n"
+                "3. Сайт доступен в данный момент.\n\n"
+                "Попробуйте еще раз."
+            )
+            return
+
+        await state.update_data(button_url=url_to_check)
+        await show_broadcast_preview(message, state, bot)
+
+    @user_router.callback_query(Broadcast.waiting_for_button_option, F.data == "broadcast_skip_button")
+    async def skip_button_handler(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+        await callback.answer()
+        await state.update_data(button_text=None, button_url=None)
+        await show_broadcast_preview(callback.message, state, bot)
+
+    async def show_broadcast_preview(message: types.Message, state: FSMContext, bot: Bot):
+        data = await state.get_data()
+        message_json = data.get('message_to_send')
+        original_message = types.Message.model_validate_json(message_json)
+        
+        button_text = data.get('button_text')
+        button_url = data.get('button_url')
+        
+        preview_keyboard = None
+        if button_text and button_url:
+            builder = InlineKeyboardBuilder()
+            builder.button(text=button_text, url=button_url)
+            preview_keyboard = builder.as_markup()
+
+        await message.answer(
+            "Вот так будет выглядеть ваше сообщение. Отправляем?",
+            reply_markup=keyboards.create_broadcast_confirmation_keyboard()
+        )
+        
+        await bot.copy_message(
+            chat_id=message.chat.id,
+            from_chat_id=original_message.chat.id,
+            message_id=original_message.message_id,
+            reply_markup=preview_keyboard
+        )
+
+        await state.set_state(Broadcast.waiting_for_confirmation)
+
+    @user_router.callback_query(Broadcast.waiting_for_confirmation, F.data == "confirm_broadcast")
+    async def confirm_broadcast_handler(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+        await callback.message.edit_text("⏳ Начинаю рассылку... Это может занять некоторое время.")
+        
+        data = await state.get_data()
+        message_json = data.get('message_to_send')
+        original_message = types.Message.model_validate_json(message_json)
+        
+        button_text = data.get('button_text')
+        button_url = data.get('button_url')
+        
+        final_keyboard = None
+        if button_text and button_url:
+            builder = InlineKeyboardBuilder()
+            builder.button(text=button_text, url=button_url)
+            final_keyboard = builder.as_markup()
+
+        await state.clear()
+        
+        users = get_all_users()
+        logger.info(f"Broadcast: Starting to iterate over {len(users)} users.")
+
+        sent_count = 0
+        failed_count = 0
+        banned_count = 0
+        broadcast_header = "📢 <b>Рассылка</b>\n\n"
+
+        for user in users:
+            user_id = user['telegram_id']
+            if user.get('is_banned'):
+                banned_count += 1
+                continue
+            
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=broadcast_header,
+                    parse_mode="html"
+                )
+                
+                await bot.copy_message(
+                    chat_id=user_id,
+                    from_chat_id=original_message.chat.id,
+                    message_id=original_message.message_id,
+                    reply_markup=final_keyboard
+                )
+
+                sent_count += 1
+                await asyncio.sleep(0.1)
+            except Exception as e:
+                failed_count += 1
+                logger.warning(f"Failed to send broadcast message to user {user_id}: {e}")
+        
+        await callback.message.answer(
+            f"✅ Рассылка завершена!\n\n"
+            f"👍 Отправлено: {sent_count}\n"
+            f"👎 Не удалось отправить: {failed_count}\n"
+            f"🚫 Пропущено (забанены): {banned_count}"
+        )
+        await show_main_menu(callback.message)
+
+    @user_router.callback_query(StateFilter(Broadcast), F.data == "cancel_broadcast")
+    async def cancel_broadcast_handler(callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer("Рассылка отменена.")
+        await state.clear()
+        await show_main_menu(callback.message, edit_message=True)
 
     @user_router.callback_query(F.data == "show_referral_program")
     @registration_required
@@ -966,6 +1142,23 @@ async def process_successful_onboarding(callback: types.CallbackQuery, state: FS
     await callback.message.delete()
     await callback.message.answer("Приятного использования!", reply_markup=keyboards.main_reply_keyboard)
     await show_main_menu(callback.message)
+
+async def is_url_reachable(url: str) -> bool:
+    pattern = re.compile(
+        r'^(https?://)'
+        r'(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})'
+        r'(/.*)?$'
+    )
+    if not re.match(pattern, url):
+        return False
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with session.head(url, allow_redirects=True) as response:
+                return response.status < 400
+    except Exception as e:
+        logger.warning(f"URL validation failed for {url}. Error: {e}")
+        return False
 
 async def notify_admin_of_purchase(bot: Bot, metadata: dict):
     if not ADMIN_ID:

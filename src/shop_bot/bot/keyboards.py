@@ -7,7 +7,7 @@ main_reply_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-def create_main_menu_keyboard(user_keys: list, trial_available: bool) -> InlineKeyboardMarkup:
+def create_main_menu_keyboard(user_keys: list, trial_available: bool, is_admin: bool) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     
     if trial_available:
@@ -18,17 +18,39 @@ def create_main_menu_keyboard(user_keys: list, trial_available: bool) -> InlineK
     builder.button(text="🤝 Реферальная программа", callback_data="show_referral_program")
     builder.button(text="🆘 Поддержка", callback_data="show_help")
     builder.button(text="ℹ️ О проекте", callback_data="show_about")
+    if is_admin:
+        builder.button(text="📢 Рассылка", callback_data="start_broadcast")
 
-    layout = [1 if trial_available else 0, 2, 1, 2]
+    layout = [1 if trial_available else 0, 2, 1, 2, 1 if is_admin else 0]
     actual_layout = [size for size in layout if size > 0]
     builder.adjust(*actual_layout)
     
     return builder.as_markup()
 
+def create_broadcast_options_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="➕ Добавить кнопку", callback_data="broadcast_add_button")
+    builder.button(text="➡️ Пропустить", callback_data="broadcast_skip_button")
+    builder.button(text="❌ Отмена", callback_data="cancel_broadcast")
+    builder.adjust(2, 1)
+    return builder.as_markup()
+
+def create_broadcast_confirmation_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Отправить всем", callback_data="confirm_broadcast")
+    builder.button(text="❌ Отмена", callback_data="cancel_broadcast")
+    builder.adjust(2)
+    return builder.as_markup()
+
+def create_broadcast_cancel_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="❌ Отмена", callback_data="cancel_broadcast")
+    return builder.as_markup()
+
 def create_about_keyboard(channel_url: str | None, terms_url: str | None, privacy_url: str | None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if channel_url:
-        builder.button(text="📰 Наш канал", url=terms_url)
+        builder.button(text="📰 Наш канал", url=channel_url)
     if terms_url:
         builder.button(text="📄 Условия использования", url=terms_url)
     if privacy_url:
