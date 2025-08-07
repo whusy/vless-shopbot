@@ -110,10 +110,10 @@ def initialize_db():
 
 def run_migration():
     if not DB_FILE.exists():
-        logging.error("Файл базы данных users.db не найден. Нечего мигрировать.")
+        logging.error("Users.db database file was not found. There is nothing to migrate.")
         return
 
-    logging.info(f"Начинаю миграцию базы данных: {DB_FILE}")
+    logging.info(f"Starting the migration of the database: {DB_FILE}")
 
     try:
         conn = sqlite3.connect(DB_FILE)
