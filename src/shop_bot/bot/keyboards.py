@@ -1,6 +1,7 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
+from shop_bot.data_manager.database import get_setting
 
 main_reply_keyboard = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="🏠 Главное меню")]],
@@ -94,10 +95,13 @@ def create_skip_email_keyboard() -> InlineKeyboardMarkup:
 
 def create_payment_method_keyboard(payment_methods: dict, action: str, key_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    
+
     if payment_methods and payment_methods.get("yookassa"):
-        builder.button(text="🏦 СБП / Банковская карта", callback_data="pay_yookassa")
-    if payment_methods and payment_methods.get("cryptobot"):
+        if get_setting("sbp_enabled"):
+            builder.button(text="🏦 СБП / Банковская карта", callback_data="pay_yookassa")
+        else:
+            builder.button(text="🏦 Банковская карта", callback_data="pay_yookassa")
+    if payment_methods and payment_methods.get("heleket"):
         builder.button(text="💎 Криптовалюта", callback_data="pay_heleket")
     if payment_methods and payment_methods.get("cryptobot"):
         builder.button(text="🤖 CryptoBot", callback_data="pay_cryptobot")

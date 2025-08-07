@@ -37,6 +37,7 @@ def initialize_db():
             ''')
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS transactions (
+                    username TEXT,
                     transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     payment_id TEXT UNIQUE NOT NULL,
                     user_id INTEGER NOT NULL,
@@ -120,24 +121,23 @@ def run_migration():
         cursor = conn.cursor()
 
         logging.info("The migration of the table 'users' ...")
-        
+    
         cursor.execute("PRAGMA table_info(users)")
         columns = [row[1] for row in cursor.fetchall()]
         
         if 'referred_by' not in columns:
             cursor.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER")
-            logging.info("-> The column 'referred_by' is successfully added.")
+            logging.info(" -> The column 'referred_by' is successfully added.")
         else:
-            logging.info("-> The column 'referred_by' already exists.")
+            logging.info(" -> The column 'referred_by' already exists.")
             
         if 'referral_balance' not in columns:
             cursor.execute("ALTER TABLE users ADD COLUMN referral_balance REAL DEFAULT 0")
-            logging.info("-> The column 'referred_by' already exists.")
+            logging.info(" -> The column 'referral_balance' is successfully added.")
         else:
-            logging.info("-> The column 'referred_by' already exists.")
+            logging.info(" -> The column 'referral_balance' already exists.")
         
-        logging.info("-> The column 'referred_by' already exists.")
-
+        logging.info("The table 'users' has been successfully updated.")
 
         logging.info("The migration of the table 'Transactions' ...")
 
@@ -148,7 +148,7 @@ def run_migration():
             cursor.execute("PRAGMA table_info(transactions)")
             trans_columns = [row[1] for row in cursor.fetchall()]
             
-            if 'payment_id' in trans_columns and 'status' in trans_columns:
+            if 'payment_id' in trans_columns and 'status' in trans_columns and 'username' in trans_columns:
                 logging.info("The 'Transactions' table already has a new structure. Migration is not required.")
             else:
                 backup_name = f"transactions_backup_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -173,7 +173,8 @@ def run_migration():
 
 def create_new_transactions_table(cursor: sqlite3.Cursor):
     cursor.execute('''
-        CREATE TABLE transactions (
+        CREATE TABLE IF NOT EXISTS transactions (
+            username TEXT,
             transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
             payment_id TEXT UNIQUE NOT NULL,
             user_id INTEGER NOT NULL,
@@ -451,15 +452,15 @@ def find_and_complete_ton_transaction(payment_id: str, amount_ton: float) -> dic
         logging.error(f"Failed to complete TON transaction {payment_id}: {e}")
         return None
 
-def log_transaction(user_id: int, username: str, email: str, host_name: str, plan_name: str, months: int, amount: float, method: str):
+def log_transaction(username: str, transaction_id: str | None, payment_id: str | None, user_id: int, status: str, amount_rub: float, amount_currency: float | None, currency_name: str | None, payment_method: str, metadata: str):
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """INSERT INTO transactions
-                   (user_id, username, email, host_name, plan_name, months, amount_spent, payment_method, transaction_date)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (user_id, username, email, host_name, plan_name, months, amount, method, datetime.now())
+                   (username, transaction_id, payment_id, user_id, status, amount_rub, amount_currency, currency_name, payment_method, metadata, created_date)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (username, transaction_id, payment_id, user_id, status, amount_rub, amount_currency, currency_name, payment_method, metadata, datetime.now())
             )
             conn.commit()
     except sqlite3.Error as e:
@@ -477,9 +478,27 @@ def get_paginated_transactions(page: int = 1, per_page: int = 15) -> tuple[list[
             cursor.execute("SELECT COUNT(*) FROM transactions")
             total = cursor.fetchone()[0]
 
-            query = "SELECT * FROM transactions ORDER BY transaction_date DESC LIMIT ? OFFSET ?"
+            query = "SELECT * FROM transactions ORDER BY created_date DESC LIMIT ? OFFSET ?"
             cursor.execute(query, (per_page, offset))
-            transactions = [dict(row) for row in cursor.fetchall()]
+            
+            for row in cursor.fetchall():
+                transaction_dict = dict(row)
+                
+                metadata_str = transaction_dict.get('metadata')
+                if metadata_str:
+                    try:
+                        metadata = json.loads(metadata_str)
+                        transaction_dict['host_name'] = metadata.get('host_name', 'N/A')
+                        transaction_dict['plan_name'] = metadata.get('plan_name', 'N/A')
+                    except json.JSONDecodeError:
+                        transaction_dict['host_name'] = 'Error'
+                        transaction_dict['plan_name'] = 'Error'
+                else:
+                    transaction_dict['host_name'] = 'N/A'
+                    transaction_dict['plan_name'] = 'N/A'
+                
+                transactions.append(transaction_dict)
+            
     except sqlite3.Error as e:
         logging.error(f"Failed to get paginated transactions: {e}")
     

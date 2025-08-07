@@ -366,7 +366,6 @@ def get_user_router() -> Router:
         sent_count = 0
         failed_count = 0
         banned_count = 0
-        broadcast_header = "📢 <b>Рассылка</b>\n\n"
 
         for user in users:
             user_id = user['telegram_id']
@@ -375,12 +374,6 @@ def get_user_router() -> Router:
                 continue
             
             try:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=broadcast_header,
-                    parse_mode="html"
-                )
-                
                 await bot.copy_message(
                     chat_id=user_id,
                     from_chat_id=original_message.chat.id,
@@ -740,10 +733,10 @@ def get_user_router() -> Router:
         await state.clear()
         
         action = data.get('action')
+
         if action == 'new':
             await buy_new_key_handler(callback)
         elif action == 'extend':
-            callback.data = f"extend_key_{data.get('key_id', 0)}"
             await extend_key_handler(callback)
         else:
             await back_to_main_menu_handler(callback)
@@ -984,7 +977,7 @@ def get_user_router() -> Router:
             
             logger.info(f"Creating Crypto Pay invoice for user {user_id}. Plan price: {price_rub} RUB. Converted to: {price_usdt} USDT.")
 
-            crypto = CryptoPay(cryptobot_token)
+            crypto = CryptoPay(cryptobot_token, TESTNET)
             
             payload_data = f"{user_id}:{months}:{float(price_rub)}:{action}:{key_id}:{host_name}:{plan_id}:{customer_email}:CryptoBot"
 
@@ -1380,16 +1373,32 @@ async def process_successful_payment(bot: Bot, metadata: dict):
         update_user_stats(user_id, price, months)
         
         user_info = get_user(user_id)
-        plan_info = get_plan_by_id(plan_id)
+
+        internal_payment_id = str(uuid.uuid4())
+        
+        log_username = user_info.get('username', 'N/A') if user_info else 'N/A'
+        log_status = 'paid'
+        log_amount_rub = float(price)
+        log_method = metadata.get('payment_method', 'Unknown')
+        
+        log_metadata = json.dumps({
+            "plan_id": metadata.get('plan_id'),
+            "plan_name": get_plan_by_id(metadata.get('plan_id')).get('plan_name', 'Unknown') if get_plan_by_id(metadata.get('plan_id')) else 'Unknown',
+            "host_name": metadata.get('host_name'),
+            "customer_email": metadata.get('customer_email')
+        })
+
         log_transaction(
+            username=log_username,
+            transaction_id=None,
+            payment_id=internal_payment_id,
             user_id=user_id,
-            username=user_info.get('username', 'N/A') if user_info else 'N/A',
-            email=customer_email,
-            host_name=host_name,
-            plan_name=plan_info.get('plan_name', 'Неизвестный') if plan_info else 'Неизвестный',
-            months=months,
-            amount=price,
-            method=payment_method or 'Неизвестный'
+            status=log_status,
+            amount_rub=log_amount_rub,
+            amount_currency=None,
+            currency_name=None,
+            payment_method=log_method,
+            metadata=log_metadata
         )
         
         await processing_message.delete()
