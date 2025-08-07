@@ -136,6 +136,7 @@ YOOKASSA_PORT=${YOOKASSA_PORT_INPUT:-443}
 NGINX_ENABLED_FILE="/etc/nginx/sites-enabled/${PROJECT_DIR}.conf"
 
 echo -e "Создаем конфигурацию Nginx..."
+sudo rm -rf /etc/nginx/sites-enabled/default
 sudo bash -c "cat > $NGINX_CONF_FILE" <<EOF
 server {
     listen ${YOOKASSA_PORT} ssl http2;
