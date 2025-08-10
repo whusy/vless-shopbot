@@ -153,11 +153,12 @@ def create_webhook_app(bot_controller_instance):
             for key in ALL_SETTINGS_KEYS:
                 if key == 'panel_password': continue
 
-                if key in ['sbp_enabled', 'force_subscription']:
-                    value = 'true' if key in request.form else 'false'
-                    update_setting(key, value)
-                elif key in request.form:
-                    update_setting(key, request.form.get(key, ''))
+                if key in request.form:
+                    if key == 'force_subscription':
+                        value = 'true' if request.form[key] == 'on' else 'false'
+                        update_setting(key, value)
+                    elif key != 'sbp_enabled':
+                        update_setting(key, request.form.get(key, ''))
 
             flash('Настройки успешно сохранены!', 'success')
             return redirect(url_for('settings_page'))
