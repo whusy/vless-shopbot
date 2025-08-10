@@ -1,4 +1,4 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 from shop_bot.data_manager.database import get_setting
@@ -153,7 +153,15 @@ def create_back_to_menu_keyboard() -> InlineKeyboardMarkup:
 def create_welcome_keyboard(channel_url: str | None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if channel_url:
-        builder.button(text="➡️ Подписаться на канал", url=channel_url)
-    builder.button(text="✅ Я подписался / Принимаю условия", callback_data="check_subscription_and_agree")
+        builder.button(text="📢 Наш канал", url=channel_url)
+    builder.button(text="✅ Я подписался", callback_data="check_subscription")
     builder.adjust(1)
     return builder.as_markup()
+
+def get_main_menu_button() -> InlineKeyboardButton:
+    """Возвращает кнопку для возврата в главное меню"""
+    return InlineKeyboardButton(text="🏠 В главное меню", callback_data="show_main_menu")
+
+def get_buy_button() -> InlineKeyboardButton:
+    """Возвращает кнопку для покупки подписки"""
+    return InlineKeyboardButton(text="💳 Купить подписку", callback_data="buy_vpn")

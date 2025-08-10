@@ -4,7 +4,7 @@ import asyncio
 import signal
 
 from shop_bot.webhook_server.app import create_webhook_app
-from shop_bot.data_manager.scheduler import periodic_subscription_check
+from shop_bot.data_manager.scheduler import periodic_subscription_check, init_scheduler
 from shop_bot.data_manager import database
 from shop_bot.bot_controller import BotController
 
@@ -46,6 +46,21 @@ def main():
         )
         flask_thread.start()
         logger.info("Flask server started in a background thread on http://0.0.0.0:1488")
+        
+        # Инициализируем планировщик с экземпляром бота
+        # Ждем инициализации бота (если он еще не инициализирован)
+        max_attempts = 10
+        for attempt in range(max_attempts):
+            bot = bot_controller.get_bot_instance()
+            if bot:
+                init_scheduler(bot)
+                logger.info("Scheduler initialized with bot instance")
+                break
+            logger.info(f"Waiting for bot initialization... (attempt {attempt + 1}/{max_attempts})")
+            await asyncio.sleep(1)
+        else:
+            logger.error("Failed to initialize scheduler: bot instance not available")
+            
         logger.info("Application is running. Bot can be started from the web panel.")
         
         asyncio.create_task(periodic_subscription_check())
