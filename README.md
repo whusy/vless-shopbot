@@ -6,10 +6,10 @@
     <a href="https://github.com/evansvl/vless-shopbot?tab=readme-ov-file#-%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D1%83">Поддержать проект</a>
 </p>
 
-![GitHub License](https://img.shields.io/github/license/evansvl/vless-shopbot)
-![GitHub Release](https://img.shields.io/github/v/release/evansvl/vless-shopbot)
-![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/evansvl/vless-shopbot)
-![GitHub Stars](https://img.shields.io/github/stars/evansvl/vless-shopbot?style=flat)
+![GitHub License](https://img.shields.io/github/license/tweopi/vless-shopbot)
+![GitHub Release](https://img.shields.io/github/v/release/tweopi/vless-shopbot)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/tweopi/vless-shopbot)
+![GitHub Stars](https://img.shields.io/github/stars/tweopi/vless-shopbot?style=flat)
 
 </div>
 
@@ -39,7 +39,7 @@
 
 ## 💻 Приобрести сервер и домен
 
-Если у вас **не имеется сервера и/или домена**, то вы можете приобрести их **здесь: [Aeza](https://aeza.net/?ref=613643)**
+Если у вас **не имеется сервера и/или домена**, то вы можете приобрести их **здесь: [Aeza](https://aeza.net/?ref=732612)**
 
 ---
 
@@ -52,7 +52,7 @@
 **2. Выполните команду:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/evansvl/vless-shopbot/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/tweopi/vless-shopbot/main/install.sh | sudo bash
 ```
 
 **Если вы обновляли бота, то иснтрукции ниже не появятся!**
@@ -164,11 +164,5 @@ docker-compose down && docker-compose up -d --build
 ## 💎 Поддержать разработку
 
 **СБП/Карта РФ:** https://yookassa.ru/my/i/aJRiTyq5D3VB/l
-
-**CryptoBot:** https://t.me/send?start=IVftnggXmRv8
-
-**TON:** `UQAtdMEig3Wl_D3FNx4RU3RhxnoJI3IizGxrrNj3O8Q-fDpK`
-
-**USDT (TRC20):** `TBW9TFUh93U1G5eTT1VTsZw51L669khCiz`
 
 ## Я ценю любой вклад в развитие проекта ❤️
