@@ -20,6 +20,10 @@ NOTIFY_BEFORE = [
     3,    # 3 часа
     1     # 1 час
 ]
+
+# Словарь для хранения отправленных уведомлений: {user_id: {key_id: set(notified_hours)}}
+notified_users = {}
+
 logger = logging.getLogger(__name__)
 
 def format_time_left(hours: int, unit: str) -> str:
@@ -153,8 +157,24 @@ async def check_expiring_subscriptions():
             for hours in NOTIFY_BEFORE:
                 # Проверяем, осталось ли примерно столько часов до истечения
                 if 0 <= total_hours_left - hours < 1:  # В пределах часа от нужного времени
-                    logger.info(f"Sending notification to user {key['user_id']} - {hours} hours left")
-                    await send_subscription_notification(bot_instance, key['user_id'], hours, key, 'hours')
+                    user_id = key['user_id']
+                    key_id = key['key_id']
+                    
+                    # Инициализируем запись для пользователя, если её нет
+                    if user_id not in notified_users:
+                        notified_users[user_id] = {}
+                    if key_id not in notified_users[user_id]:
+                        notified_users[user_id][key_id] = set()
+                    
+                    # Проверяем, не отправляли ли уже уведомление для этого интервала
+                    if hours not in notified_users[user_id][key_id]:
+                        logger.info(f"Sending notification to user {user_id} - {hours} hours left")
+                        await send_subscription_notification(bot_instance, user_id, hours, key, 'hours')
+                        # Запоминаем, что отправили уведомление
+                        notified_users[user_id][key_id].add(hours)
+                    else:
+                        logger.debug(f"Notification already sent to user {user_id} for key {key_id} - {hours} hours")
+                    
                     break  # Отправляем только одно уведомление за раз
     
     logger.info("Finished checking expiring subscriptions")
