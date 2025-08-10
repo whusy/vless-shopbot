@@ -163,6 +163,6 @@ docker-compose down && docker-compose up -d --build
 
 ## 💎 Поддержать разработку
 
-**СБП/Карта РФ:** https://yookassa.ru/my/i/aJRiTyq5D3VB/l
+**СБП/Карта РФ:** https://yookassa.ru/my/i/aJiSmSUeUie5/l
 
 ## Я ценю любой вклад в развитие проекта ❤️
