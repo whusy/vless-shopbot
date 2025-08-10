@@ -7,7 +7,7 @@
 </p>
 
 ![GitHub License](https://img.shields.io/github/license/tweopi/vless-shopbot)
-![GitHub Release](https://img.shields.io/github/v/release/tweopi/vless-shopbot)
+![GitHub Release](https://img.shields.io/badge/v2.0.8%20-8A2BE2)
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/tweopi/vless-shopbot)
 ![GitHub Stars](https://img.shields.io/github/stars/tweopi/vless-shopbot?style=flat)
 
@@ -163,6 +163,6 @@ docker-compose down && docker-compose up -d --build
 
 ## 💎 Поддержать разработку
 
-**СБП/Карта РФ:** https://yookassa.ru/my/i/aJRiTyq5D3VB/l
+**СБП/Карта РФ:** https://yookassa.ru/my/i/aJiSmSUeUie5/l
 
 ## Я ценю любой вклад в развитие проекта ❤️
