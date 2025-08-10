@@ -39,7 +39,7 @@
 
 ## 💻 Приобрести сервер и домен
 
-Если у вас **не имеется сервера и/или домена**, то вы можете приобрести их **здесь: [Aeza](https://aeza.net/?ref=613643)**
+Если у вас **не имеется сервера и/или домена**, то вы можете приобрести их **здесь: [Aeza](https://aeza.net/?ref=732612)**
 
 ---
 
@@ -52,7 +52,7 @@
 **2. Выполните команду:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/evansvl/vless-shopbot/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/tweopi/vless-shopbot/main/install.sh | sudo bash
 ```
 
 **Если вы обновляли бота, то иснтрукции ниже не появятся!**
@@ -164,11 +164,5 @@ docker-compose down && docker-compose up -d --build
 ## 💎 Поддержать разработку
 
 **СБП/Карта РФ:** https://yookassa.ru/my/i/aJRiTyq5D3VB/l
-
-**CryptoBot:** https://t.me/send?start=IVftnggXmRv8
-
-**TON:** `UQAtdMEig3Wl_D3FNx4RU3RhxnoJI3IizGxrrNj3O8Q-fDpK`
-
-**USDT (TRC20):** `TBW9TFUh93U1G5eTT1VTsZw51L669khCiz`
 
 ## Я ценю любой вклад в развитие проекта ❤️
