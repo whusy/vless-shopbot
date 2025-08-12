@@ -10,7 +10,7 @@ from shop_bot.modules import xui_api
 CHECK_INTERVAL_SECONDS = 300 
 SUBSCRIPTION_CHECK_INTERVAL = 300
 
-NOTIFY_BEFORE = [168,72,24,12,6,3,1]
+NOTIFY_BEFORE = [72,48,24,1]
 
 notified_users = {}
 
