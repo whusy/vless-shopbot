@@ -4,7 +4,7 @@ import asyncio
 import signal
 
 from shop_bot.webhook_server.app import create_webhook_app
-from shop_bot.data_manager.scheduler import periodic_subscription_check, init_scheduler
+from shop_bot.data_manager.scheduler import periodic_subscription_check
 from shop_bot.data_manager import database
 from shop_bot.bot_controller import BotController
 
