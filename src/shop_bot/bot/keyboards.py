@@ -151,33 +151,22 @@ def create_back_to_menu_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 def create_welcome_keyboard(channel_url: str | None, is_subscription_forced: bool = False) -> InlineKeyboardMarkup:
-    """Создает клавиатуру для экрана приветствия.
-    
-    Args:
-        channel_url: URL канала для подписки
-        is_subscription_forced: Флаг, указывающий, является ли подписка обязательной
-    """
     builder = InlineKeyboardBuilder()
     
     if channel_url and is_subscription_forced:
-        # Если подписка обязательна, показываем кнопку канала и кнопку подтверждения
         builder.button(text="📢 Перейти в канал", url=channel_url)
         builder.button(text="✅ Я подписался", callback_data="check_subscription_and_agree")
     elif channel_url:
-        # Если подписка не обязательна, но канал есть, показываем его как опциональный
         builder.button(text="📢 Наш канал (не обязательно)", url=channel_url)
         builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
     else:
-        # Если канала нет, просто кнопка принятия условий
         builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
         
-    builder.adjust(1)  # Каждая кнопка на новой строке
+    builder.adjust(1)
     return builder.as_markup()
 
 def get_main_menu_button() -> InlineKeyboardButton:
-    """Возвращает кнопку для возврата в главное меню"""
     return InlineKeyboardButton(text="🏠 В главное меню", callback_data="show_main_menu")
 
 def get_buy_button() -> InlineKeyboardButton:
-    """Возвращает кнопку для покупки подписки"""
     return InlineKeyboardButton(text="💳 Купить подписку", callback_data="buy_vpn")

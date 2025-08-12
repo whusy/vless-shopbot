@@ -47,8 +47,6 @@ def main():
         flask_thread.start()
         logger.info("Flask server started in a background thread on http://0.0.0.0:1488")
         
-        # Инициализируем планировщик с экземпляром бота
-        # Ждем инициализации бота (если он еще не инициализирован)
         max_attempts = 10
         for attempt in range(max_attempts):
             bot = bot_controller.get_bot_instance()

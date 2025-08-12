@@ -186,7 +186,6 @@ def get_user_router() -> Router:
         channel_url = get_setting("channel_url")
         is_subscription_forced = get_setting("force_subscription") == "true"
 
-        # If subscription is not forced or no channel URL, proceed to successful onboarding
         if not is_subscription_forced or not channel_url:
             await process_successful_onboarding(callback, state)
             return

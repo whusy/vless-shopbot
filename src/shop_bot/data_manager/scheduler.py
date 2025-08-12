@@ -7,27 +7,16 @@ from shop_bot.bot import keyboards
 from shop_bot.data_manager import database
 from shop_bot.modules import xui_api
 
-CHECK_INTERVAL_SECONDS = 300  # 5 минут между проверками
-SUBSCRIPTION_CHECK_INTERVAL = 300  # 5 минут между проверками подписок
+CHECK_INTERVAL_SECONDS = 300 
+SUBSCRIPTION_CHECK_INTERVAL = 300
 
-# Временные интервалы для уведомлений (в часах)
-NOTIFY_BEFORE = [
-    168,  # 7 дней (168 часов)
-    72,   # 3 дня (72 часа)
-    24,   # 1 день (24 часа)
-    12,   # 12 часов
-    6,    # 6 часов
-    3,    # 3 часа
-    1     # 1 час
-]
+NOTIFY_BEFORE = [168,72,24,12,6,3,1]
 
-# Словарь для хранения отправленных уведомлений: {user_id: {key_id: set(notified_hours)}}
 notified_users = {}
 
 logger = logging.getLogger(__name__)
 
 def format_time_left(hours: int, unit: str) -> str:
-    """Форматирует оставшееся время в читаемый вид"""
     if unit == 'days':
         if hours == 1:
             return "1 день"
@@ -35,7 +24,7 @@ def format_time_left(hours: int, unit: str) -> str:
             return f"{hours} дня"
         else:
             return f"{hours} дней"
-    else:  # hours
+    else:
         if hours == 1:
             return "1 час"
         elif 2 <= hours <= 4:
@@ -44,20 +33,9 @@ def format_time_left(hours: int, unit: str) -> str:
             return f"{hours} часов"
 
 async def send_subscription_notification(bot, user_id: int, time_left: int, key_info: dict, unit: str = 'days'):
-    """Отправляет уведомление пользователю о скором окончании подписки
-    
-    Args:
-        bot: Экземпляр бота
-        user_id: ID пользователя
-        time_left: Оставшееся время (в днях или часах)
-        key_info: Информация о ключе
-        unit: Единица измерения времени ('days' или 'hours')
-    """
     try:
-        # Форматируем оставшееся время
         time_text = format_time_left(time_left, unit)
         
-        # Получаем дату истечения
         expiry_date = None
         if isinstance(key_info['expiry_date'], (int, float)):
             expiry_date = datetime.fromtimestamp(float(key_info['expiry_date']) / 1000)
@@ -70,7 +48,6 @@ async def send_subscription_notification(bot, user_id: int, time_left: int, key_
             
         expiry_str = expiry_date.strftime('%d.%m.%Y в %H:%M')
         
-        # Формируем сообщение
         message = (
             f"⚠️ *Внимание!* ⚠️\n\n"
             f"Ваша подписка истекает через *{time_text}*\n"
@@ -78,12 +55,10 @@ async def send_subscription_notification(bot, user_id: int, time_left: int, key_
             f"Продлите подписку, чтобы не остаться без доступа к VPN!"
         )
         
-        # Создаем клавиатуру с кнопками
         builder = InlineKeyboardBuilder()
         builder.row(keyboards.get_main_menu_button())
         builder.row(keyboards.get_buy_button())
         
-        # Отправляем сообщение
         await bot.send_message(
             chat_id=user_id,
             text=message,
@@ -97,30 +72,25 @@ async def send_subscription_notification(bot, user_id: int, time_left: int, key_
         logger.exception("Detailed error:")
 
 def get_days_text(days: int) -> str:
-    """Возвращает правильную форму слова 'день'"""
     if days % 10 == 1 and days % 100 != 11:
         return 'день'
     elif 2 <= days % 10 <= 4 and (days % 100 < 10 or days % 100 >= 20):
         return 'дня'
     return 'дней'
 
-# Глобальная переменная для хранения экземпляра бота
 bot_instance = None
 
 def init_scheduler(bot):
-    """Инициализация планировщика с экземпляром бота"""
     global bot_instance
     bot_instance = bot
 
 async def check_expiring_subscriptions():
-    """Проверяет подписки, которые скоро истекут, и отправляет уведомления"""
     if not bot_instance:
         logger.warning("Bot instance not initialized, skipping subscription check")
         return
         
     logger.info("Starting check for expiring subscriptions...")
     
-    # Получаем все активные ключи
     all_hosts = database.get_all_hosts()
     current_time = datetime.now()
     
@@ -132,12 +102,9 @@ async def check_expiring_subscriptions():
                 continue
                 
             try:
-                # Пробуем разные форматы даты
                 if isinstance(key['expiry_date'], (int, float)):
-                    # Если это число (timestamp в миллисекундах)
                     expiry_date = datetime.fromtimestamp(float(key['expiry_date']) / 1000)
                 elif isinstance(key['expiry_date'], str):
-                    # Если это строка в формате 'YYYY-MM-DD HH:MM:SS.mmmmmm'
                     expiry_date = datetime.strptime(key['expiry_date'].split('.')[0], '%Y-%m-%d %H:%M:%S')
                 else:
                     logger.error(f"Unknown expiry_date format for key {key.get('key_id')}: {key['expiry_date']}")
@@ -146,62 +113,52 @@ async def check_expiring_subscriptions():
                 time_left = expiry_date - current_time
                 total_hours_left = int(time_left.total_seconds() / 3600)
                 
-                # Логируем для отладки
                 logger.debug(f"Key {key.get('key_id')} expires at {expiry_date}, {total_hours_left} hours left")
                 
             except Exception as e:
                 logger.error(f"Error processing expiry date for key {key.get('key_id')} (value: {key.get('expiry_date')}): {e}")
                 continue
             
-            # Проверяем, нужно ли отправить уведомление
             for hours in NOTIFY_BEFORE:
-                # Проверяем, осталось ли примерно столько часов до истечения
-                if 0 <= total_hours_left - hours < 1:  # В пределах часа от нужного времени
+                if 0 <= total_hours_left - hours < 1:
                     user_id = key['user_id']
                     key_id = key['key_id']
                     
-                    # Инициализируем запись для пользователя, если её нет
                     if user_id not in notified_users:
                         notified_users[user_id] = {}
                     if key_id not in notified_users[user_id]:
                         notified_users[user_id][key_id] = set()
                     
-                    # Проверяем, не отправляли ли уже уведомление для этого интервала
                     if hours not in notified_users[user_id][key_id]:
                         logger.info(f"Sending notification to user {user_id} - {hours} hours left")
                         await send_subscription_notification(bot_instance, user_id, hours, key, 'hours')
-                        # Запоминаем, что отправили уведомление
                         notified_users[user_id][key_id].add(hours)
                     else:
                         logger.debug(f"Notification already sent to user {user_id} for key {key_id} - {hours} hours")
                     
-                    break  # Отправляем только одно уведомление за раз
+                    break
     
     logger.info("Finished checking expiring subscriptions")
 
 async def periodic_subscription_check():
-    """Основная функция проверки подписок"""
     logger.info("Scheduler has been started. Initial check will be in a moment.")
     await asyncio.sleep(10)
     
-    last_notification_check = datetime.now() - timedelta(days=1)  # Первая проверка через день
-    check_interval = 5  # Проверять каждые 5 секунд, пока бот не инициализирован
+    last_notification_check = datetime.now() - timedelta(days=1)
+    check_interval = 5
 
     while True:
         current_time = datetime.now()
         
-        # Проверяем, инициализирован ли бот
         if not bot_instance:
             logger.warning("Bot instance not initialized, waiting...")
             await asyncio.sleep(check_interval)
             continue
             
-        # Если бот инициализирован, используем обычный интервал
         if check_interval != CHECK_INTERVAL_SECONDS:
             check_interval = CHECK_INTERVAL_SECONDS
             logger.info("Bot instance is now available, switching to normal check interval")
         
-        # Проверяем подписки на истечение
         logger.info("Scheduler: Starting periodic subscription check cycle...")
         total_affected_records = 0
 
@@ -211,7 +168,6 @@ async def periodic_subscription_check():
             await asyncio.sleep(CHECK_INTERVAL_SECONDS)
             continue
 
-        # Проверяем истекшие подписки раз в 24 часа
         if (current_time - last_notification_check).total_seconds() >= SUBSCRIPTION_CHECK_INTERVAL:
             logger.info("Checking for expiring subscriptions...")
             await check_expiring_subscriptions()
