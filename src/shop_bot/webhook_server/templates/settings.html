@@ -347,14 +347,13 @@
 					/>
 				</div>
 				<div class="form-group form-group-checkbox">
-					<input
-						type="checkbox"
-						id="force_subscription"
-						name="force_subscription"
-						value="true"
-						{% if settings.force_subscription == 'true' %}checked{% endif %}
+					<input type="checkbox" id="force_subscription"
+					name="force_subscription" value="true" {% if
+					settings.force_subscription == 'true' %}checked{% endif %} >
+					<label for="force_subscription"
+						>Требовать обязательную подписку на канал</label
 					>
-					<label for="force_subscription">Требовать обязательную подписку на канал</label>
+				</div>
 			</section>
 
 			<button type="submit" class="button button-primary">

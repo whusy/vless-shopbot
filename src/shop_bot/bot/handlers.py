@@ -172,7 +172,10 @@ def get_user_router() -> Router:
         
         await message.answer(
             final_text,
-            reply_markup=keyboards.create_welcome_keyboard(channel_url if is_subscription_forced else None),
+            reply_markup=keyboards.create_welcome_keyboard(
+                channel_url=channel_url,
+                is_subscription_forced=is_subscription_forced
+            ),
             disable_web_page_preview=True
         )
         await state.set_state(Onboarding.waiting_for_subscription_and_agreement)
@@ -181,8 +184,9 @@ def get_user_router() -> Router:
     async def check_subscription_handler(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
         user_id = callback.from_user.id
         channel_url = get_setting("channel_url")
+        is_subscription_forced = get_setting("force_subscription") == "true"
 
-        if not channel_url:
+        if not is_subscription_forced or not channel_url:
             await process_successful_onboarding(callback, state)
             return
             
