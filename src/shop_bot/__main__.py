@@ -46,18 +46,6 @@ def main():
         )
         flask_thread.start()
         logger.info("Flask server started in a background thread on http://0.0.0.0:1488")
-        
-        max_attempts = 10
-        for attempt in range(max_attempts):
-            bot = bot_controller.get_bot_instance()
-            if bot:
-                init_scheduler(bot)
-                logger.info("Scheduler initialized with bot instance")
-                break
-            logger.info(f"Waiting for bot initialization... (attempt {attempt + 1}/{max_attempts})")
-            await asyncio.sleep(1)
-        else:
-            logger.error("Failed to initialize scheduler: bot instance not available")
             
         logger.info("Application is running. Bot can be started from the web panel.")
         

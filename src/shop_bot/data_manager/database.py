@@ -236,6 +236,17 @@ def get_all_hosts() -> list[dict]:
         logging.error(f"Error getting list of all hosts: {e}")
         return []
 
+def get_all_keys() -> list[dict]:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM vpn_keys")
+            return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get all keys: {e}")
+        return []
+
 def get_setting(key: str) -> str | None:
     try:
         with sqlite3.connect(DB_FILE) as conn:

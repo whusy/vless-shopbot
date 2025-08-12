@@ -105,11 +105,16 @@ def create_payment_method_keyboard(payment_methods: dict, action: str, key_id: i
         builder.button(text="💎 Криптовалюта", callback_data="pay_heleket")
     if payment_methods and payment_methods.get("cryptobot"):
         builder.button(text="🤖 CryptoBot", callback_data="pay_cryptobot")
-    #if payment_methods and payment_methods.get("tonconnect"):
-    #    builder.button(text="🪙 TON Connect", callback_data="pay_tonconnect")
+    if payment_methods and payment_methods.get("tonconnect"):
+        builder.button(text="🪙 TON Connect", callback_data="pay_tonconnect")
 
     builder.button(text="⬅️ Назад", callback_data="back_to_email_prompt")
     builder.adjust(1)
+    return builder.as_markup()
+
+def create_ton_connect_keyboard(connect_url: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🚀 Открыть кошелек", url=connect_url)
     return builder.as_markup()
 
 def create_payment_keyboard(payment_url: str) -> InlineKeyboardMarkup:
