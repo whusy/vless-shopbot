@@ -1,7 +1,13 @@
+import logging
+
+from datetime import datetime
+
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from datetime import datetime
+
 from shop_bot.data_manager.database import get_setting
+
+logger = logging.getLogger(__name__)
 
 main_reply_keyboard = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="🏠 Главное меню")]],
@@ -106,7 +112,9 @@ def create_payment_method_keyboard(payment_methods: dict, action: str, key_id: i
     if payment_methods and payment_methods.get("cryptobot"):
         builder.button(text="🤖 CryptoBot", callback_data="pay_cryptobot")
     if payment_methods and payment_methods.get("tonconnect"):
-        builder.button(text="🪙 TON Connect", callback_data="pay_tonconnect")
+        callback_data_ton = "pay_tonconnect"
+        logger.info(f"Creating TON button with callback_data: '{callback_data_ton}'")
+        builder.button(text="🪙 TON Connect", callback_data=callback_data_ton)
 
     builder.button(text="⬅️ Назад", callback_data="back_to_email_prompt")
     builder.adjust(1)

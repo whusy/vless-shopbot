@@ -45,6 +45,7 @@ def main():
             daemon=True
         )
         flask_thread.start()
+        
         logger.info("Flask server started in a background thread on http://0.0.0.0:1488")
             
         logger.info("Application is running. Bot can be started from the web panel.")

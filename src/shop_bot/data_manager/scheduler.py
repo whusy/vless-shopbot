@@ -18,7 +18,6 @@ notified_users = {}
 logger = logging.getLogger(__name__)
 
 def format_time_left(hours: int) -> str:
-    """Correctly formats the time left for the notification message."""
     if hours >= 24:
         days = hours // 24
         if days % 10 == 1 and days % 100 != 11:
@@ -58,10 +57,39 @@ async def send_subscription_notification(bot: Bot, user_id: int, key_id: int, ti
     except Exception as e:
         logger.error(f"Error sending subscription notification to user {user_id}: {e}")
 
+def _cleanup_notified_users(all_db_keys: list[dict]):
+    if not notified_users:
+        return
+
+    logger.info("Scheduler: Cleaning up the notification cache...")
+    
+    active_key_ids = {key['key_id'] for key in all_db_keys}
+    
+    users_to_check = list(notified_users.keys())
+    
+    cleaned_users = 0
+    cleaned_keys = 0
+
+    for user_id in users_to_check:
+        keys_to_check = list(notified_users[user_id].keys())
+        for key_id in keys_to_check:
+            if key_id not in active_key_ids:
+                del notified_users[user_id][key_id]
+                cleaned_keys += 1
+        
+        if not notified_users[user_id]:
+            del notified_users[user_id]
+            cleaned_users += 1
+    
+    if cleaned_users > 0 or cleaned_keys > 0:
+        logger.info(f"Scheduler: Cleanup complete. Removed {cleaned_users} user entries and {cleaned_keys} key entries from the cache.")
+
 async def check_expiring_subscriptions(bot: Bot):
     logger.info("Scheduler: Checking for expiring subscriptions...")
     current_time = datetime.now()
     all_keys = database.get_all_keys()
+    
+    _cleanup_notified_users(all_keys)
     
     for key in all_keys:
         try:
@@ -82,7 +110,7 @@ async def check_expiring_subscriptions(bot: Bot):
                     if hours_mark not in notified_users[user_id][key_id]:
                         await send_subscription_notification(bot, user_id, key_id, hours_mark, expiry_date)
                         notified_users[user_id][key_id].add(hours_mark)
-                    break
+                    break 
                     
         except Exception as e:
             logger.error(f"Error processing expiry for key {key.get('key_id')}: {e}")

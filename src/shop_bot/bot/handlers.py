@@ -1064,76 +1064,75 @@ def get_user_router() -> Router:
         else:
             await callback.message.edit_text("❌ Не удалось создать счет Heleket. Попробуйте другой способ оплаты.")
 
-        @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_tonconnect")
-        async def create_ton_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
-            data = await state.get_data()
-            user_id = callback.from_user.id
-            wallet_address = get_setting("ton_wallet_address")
-            plan = get_plan_by_id(data.get('plan_id'))
+    @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_tonconnect")
+    async def create_ton_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
+        logger.info(f"User {callback.from_user.id}: Entered create_ton_invoice_handler.")
+        data = await state.get_data()
+        user_id = callback.from_user.id
+        wallet_address = get_setting("ton_wallet_address")
+        plan = get_plan_by_id(data.get('plan_id'))
+        
+        if not wallet_address or not plan:
+            await callback.message.edit_text("❌ Оплата через TON временно недоступна.")
+            await state.clear()
+            return
+
+        await callback.answer("Создаю ссылку и QR-код для TON Connect...")
             
-            if not wallet_address or not plan:
-                await callback.message.edit_text("❌ Оплата через TON временно недоступна.")
-                await state.clear()
-                return
+        price_rub = Decimal(str(data.get('final_price', plan['price'])))
 
-            await callback.answer("Создаю ссылку и QR-код для TON Connect...")
-                
-            price_rub = Decimal(str(data.get('final_price', plan['price'])))
+        usdt_rub_rate = await get_usdt_rub_rate()
+        ton_usdt_rate = await get_ton_usdt_rate()
 
-            # Расчет цены в TON
-            usdt_rub_rate = await get_usdt_rub_rate()
-            ton_usdt_rate = await get_ton_usdt_rate()
+        if not usdt_rub_rate or not ton_usdt_rate:
+            await callback.message.edit_text("❌ Не удалось получить курс TON. Попробуйте позже.")
+            await state.clear()
+            return
 
-            if not usdt_rub_rate or not ton_usdt_rate:
-                await callback.message.edit_text("❌ Не удалось получить курс TON. Попробуйте позже.")
-                await state.clear()
-                return
+        price_ton = (price_rub / usdt_rub_rate / ton_usdt_rate).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+        amount_nanoton = int(price_ton * 1_000_000_000)
+        
+        payment_id = str(uuid.uuid4())
+        metadata = {
+            "user_id": user_id, "months": plan['months'], "price": float(price_rub),
+            "action": data.get('action'), "key_id": data.get('key_id'),
+            "host_name": data.get('host_name'), "plan_id": data.get('plan_id'),
+            "customer_email": data.get('customer_email'), "payment_method": "TON Connect"
+        }
+        create_pending_transaction(payment_id, user_id, float(price_rub), metadata)
 
-            price_ton = (price_rub / usdt_rub_rate / ton_usdt_rate).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
-            amount_nanoton = int(price_ton * 1_000_000_000)
+        transaction_payload = {
+            'messages': [{'address': wallet_address, 'amount': str(amount_nanoton), 'payload': payment_id}],
+            'valid_until': int(datetime.now().timestamp()) + 600
+        }
+
+        try:
+            connect_url = await _start_ton_connect_process(user_id, transaction_payload)
             
-            payment_id = str(uuid.uuid4())
-            metadata = {
-                "user_id": user_id, "months": plan['months'], "price": float(price_rub),
-                "action": data.get('action'), "key_id": data.get('key_id'),
-                "host_name": data.get('host_name'), "plan_id": data.get('plan_id'),
-                "customer_email": data.get('customer_email'), "payment_method": "TON Connect"
-            }
-            create_pending_transaction(payment_id, user_id, float(price_rub), metadata)
+            qr_img = qrcode.make(connect_url)
+            bio = BytesIO()
+            qr_img.save(bio, "PNG")
+            qr_file = BufferedInputFile(bio.getvalue(), "ton_qr.png")
 
-            transaction_payload = {
-                'messages': [{'address': wallet_address, 'amount': str(amount_nanoton), 'payload': payment_id}],
-                'valid_until': int(datetime.now().timestamp()) + 600
-            }
+            await callback.message.delete()
+            await callback.message.answer_photo(
+                photo=qr_file,
+                caption=(
+                    f"💎 **Оплата через TON Connect**\n\n"
+                    f"Сумма к оплате: `{price_ton}` **TON**\n\n"
+                    f"✅ **Способ 1 (на телефоне):** Нажмите кнопку **'Открыть кошелек'** ниже.\n"
+                    f"✅ **Способ 2 (на компьютере):** Отсканируйте QR-код кошельком.\n\n"
+                    f"После подключения кошелька подтвердите транзакцию."
+                ),
+                parse_mode="Markdown",
+                reply_markup=keyboards.create_ton_connect_keyboard(connect_url)
+            )
+            await state.clear()
 
-            try:
-                # Вызываем нашу новую локальную функцию
-                connect_url = await _generate_ton_connect_payment_link(user_id, transaction_payload)
-                
-                qr_img = qrcode.make(connect_url)
-                bio = BytesIO()
-                qr_img.save(bio, "PNG")
-                qr_file = BufferedInputFile(bio.getvalue(), "ton_qr.png")
-
-                await callback.message.delete()
-                await callback.message.answer_photo(
-                    photo=qr_file,
-                    caption=(
-                        f"💎 **Оплата через TON Connect**\n\n"
-                        f"Сумма к оплате: `{price_ton}` **TON**\n\n"
-                        f"✅ **Способ 1 (на телефоне):** Нажмите кнопку **'Открыть кошелек'** ниже.\n"
-                        f"✅ **Способ 2 (на компьютере):** Отсканируйте QR-код кошельком.\n\n"
-                        f"После подключения кошелька подтвердите транзакцию."
-                    ),
-                    parse_mode="Markdown",
-                    reply_markup=keyboards.create_ton_connect_keyboard(connect_url)
-                )
-                await state.clear()
-                
-            except Exception as e:
-                logger.error(f"Failed to generate TON Connect link for user {user_id}: {e}", exc_info=True)
-                await callback.message.answer("❌ Не удалось создать ссылку для TON Connect. Попробуйте позже.")
-                await state.clear()
+        except Exception as e:
+            logger.error(f"Failed to generate TON Connect link for user {user_id}: {e}", exc_info=True)
+            await callback.message.answer("❌ Не удалось создать ссылку для TON Connect. Попробуйте позже.")
+            await state.clear()
 
         @user_router.message(F.text)
         @registration_required
@@ -1145,6 +1144,7 @@ def get_user_router() -> Router:
     return user_router
 
 _user_connectors: Dict[int, TonConnect] = {}
+_listener_tasks: Dict[int, asyncio.Task] = {}
 
 async def _get_ton_connect_instance(user_id: int) -> TonConnect:
     if user_id not in _user_connectors:
@@ -1152,14 +1152,26 @@ async def _get_ton_connect_instance(user_id: int) -> TonConnect:
         _user_connectors[user_id] = TonConnect(manifest_url=manifest_url)
     return _user_connectors[user_id]
 
-async def _wait_for_connection_and_send_tx(connector: TonConnect, user_id: int, transaction_payload: dict):
+async def _listener_task(connector: TonConnect, user_id: int, transaction_payload: dict):
     try:
-        await asyncio.wait_for(connector.wait_for_next_event(), timeout=300)
+        wallet_connected = False
+        for _ in range(120):
+            if connector.connected:
+                wallet_connected = True
+                break
+            await asyncio.sleep(1)
+
+        if not wallet_connected:
+            logger.warning(f"TON Connect: Timeout waiting for wallet connection from user {user_id}.")
+            return
+
         logger.info(f"TON Connect: Wallet connected for user {user_id}. Address: {connector.account.address}")
+        
+        logger.info(f"TON Connect: Sending transaction request to user {user_id} with payload: {transaction_payload}")
         await connector.send_transaction(transaction_payload)
+        
         logger.info(f"TON Connect: Transaction request sent successfully for user {user_id}.")
-    except asyncio.TimeoutError:
-        logger.warning(f"TON Connect: Timeout waiting for wallet connection from user {user_id}.")
+
     except UserRejectsError:
         logger.warning(f"TON Connect: User {user_id} rejected the transaction.")
     except Exception as e:
@@ -1167,13 +1179,22 @@ async def _wait_for_connection_and_send_tx(connector: TonConnect, user_id: int, 
     finally:
         if user_id in _user_connectors:
             del _user_connectors[user_id]
+        if user_id in _listener_tasks:
+            del _listener_tasks[user_id]
 
-async def _generate_ton_connect_payment_link(user_id: int, transaction_payload: dict) -> str:
+async def _start_ton_connect_process(user_id: int, transaction_payload: dict) -> str:
+    if user_id in _listener_tasks and not _listener_tasks[user_id].done():
+        _listener_tasks[user_id].cancel()
+
     connector = await _get_ton_connect_instance(user_id)
-    asyncio.create_task(
-        _wait_for_connection_and_send_tx(connector, user_id, transaction_payload)
+    
+    task = asyncio.create_task(
+        _listener_task(connector, user_id, transaction_payload)
     )
-    return await connector.connect({'ton_addr': {}})
+    _listener_tasks[user_id] = task
+
+    wallets = connector.get_wallets()
+    return connector.connect(wallets[0])
 
 async def process_successful_onboarding(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer("✅ Спасибо! Доступ предоставлен.")
