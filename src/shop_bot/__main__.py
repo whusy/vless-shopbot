@@ -49,7 +49,7 @@ def main():
             
         logger.info("Application is running. Bot can be started from the web panel.")
         
-        asyncio.create_task(periodic_subscription_check())
+        asyncio.create_task(periodic_subscription_check(bot_controller))
 
         await asyncio.Future()
 
