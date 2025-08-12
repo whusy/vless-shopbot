@@ -6,10 +6,10 @@
     <a href="https://github.com/evansvl/vless-shopbot?tab=readme-ov-file#-%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D1%83">Поддержать проект</a>
 </p>
 
-![GitHub License](https://img.shields.io/github/license/evansvl/vless-shopbot)
-![GitHub Release](https://img.shields.io/github/v/release/evansvl/vless-shopbot)
-![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/evansvl/vless-shopbot)
-![GitHub Stars](https://img.shields.io/github/stars/evansvl/vless-shopbot?style=flat)
+![GitHub License](https://img.shields.io/tweopi/license/evansvl/vless-shopbot)
+![GitHub Release](https://img.shields.io/badge/2.0.9%20-8A2BE2)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/tweopi/vless-shopbot)
+![GitHub Stars](https://img.shields.io/github/stars/tweopi/vless-shopbot?style=flat)
 
 </div>
 
@@ -52,7 +52,7 @@
 **2. Выполните команду:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/evansvl/vless-shopbot/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/tweopi/vless-shopbot/main/install.sh | sudo bash
 ```
 
 **Если вы обновляли бота, то иснтрукции ниже не появятся!**
