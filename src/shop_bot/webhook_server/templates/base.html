@@ -29,13 +29,19 @@
 						class="nav-link {% if request.endpoint == 'settings_page' %}active{% endif %}"
 						>Настройки</a
 					>
-					<a
-						href="https://github.com/tweopi/vless-shopbot"
-						class="nav-link"
-						target="_blank"
-						>Поддержать разработку</a
-					>
 				</nav>
+                <div class="bm">
+                    <input id="burger" type="checkbox" />
+                    <label for="burger" class="burger_img"></label>
+                    <nav class="burger-menu">
+                        <ul>
+                            <li><a href="{{ url_for('dashboard_page') }}">Главная</a></li>
+                            <li><a href="{{ url_for('users_page') }}">Пользователь</a></li>
+                            <li><a href="{{ url_for('settings_page') }}">Настройки</a></li>
+                        </ul>
+                    </nav>
+                </div>
+
 
 				<div class="header-controls">
 					<div class="bot-control">
