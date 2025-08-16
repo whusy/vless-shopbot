@@ -88,8 +88,7 @@ def update_or_create_client_on_panel(api: Api, inbound_id: int, email: str, days
                 email=email,
                 enable=True,
                 flow="xtls-rprx-vision",
-                total_gb=0,
-                reset=days_to_add
+                expiry_time=new_expiry_ms
             )
             inbound_to_modify.settings.clients.append(new_client)
 
