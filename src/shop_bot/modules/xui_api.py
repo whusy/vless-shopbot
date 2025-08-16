@@ -87,9 +87,9 @@ def update_or_create_client_on_panel(api: Api, inbound_id: int, email: str, days
                 id=client_uuid,
                 email=email,
                 enable=True,
-                expiry_time=new_expiry_ms,
                 flow="xtls-rprx-vision",
-                total_gb=0
+                total_gb=0,
+                reset=days_to_add
             )
             inbound_to_modify.settings.clients.append(new_client)
 
@@ -175,15 +175,15 @@ async def delete_client_on_host(host_name: str, client_email: str) -> bool:
         
     try:
         client_to_delete = api.client.get_by_email(client_email)
-        
+        logger.info(client_to_delete)
         if client_to_delete:
             api.client.delete(inbound.id, client_to_delete.id)
-            logger.info(f"Successfully deleted client '{client_email}' from host '{host_name}'.")
+            logger.info(f"Successfully deleted client '{client_to_delete.id}' from host '{host_name}'.")
             return True
         else:
-            logger.warning(f"Client '{client_email}' not found on host '{host_name}' for deletion (already gone).")
+            logger.warning(f"Client '{client_to_delete.id}' not found on host '{host_name}' for deletion (already gone).")
             return True
             
     except Exception as e:
-        logger.error(f"Failed to delete client '{client_email}' from host '{host_name}': {e}", exc_info=True)
+        logger.error(f"Failed to delete client '{client_to_delete.id}' from host '{host_name}': {e}", exc_info=True)
         return False
