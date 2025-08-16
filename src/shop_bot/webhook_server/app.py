@@ -31,7 +31,7 @@ ALL_SETTINGS_KEYS = [
     "telegram_bot_username", "admin_telegram_id", "yookassa_shop_id",
     "yookassa_secret_key", "sbp_enabled", "receipt_email", "cryptobot_token",
     "heleket_merchant_id", "heleket_api_key", "domain", "referral_percentage",
-    "referral_discount", "ton_wallet_address", "tonapi_key", "force_subscription"
+    "referral_discount", "ton_wallet_address", "tonapi_key", "force_subscription", "trial_enabled", "trial_duration_days", "enable_referrals", "minimum_withdrawal"
 ]
 
 def create_webhook_app(bot_controller_instance):
@@ -150,13 +150,13 @@ def create_webhook_app(bot_controller_instance):
             if 'panel_password' in request.form and request.form.get('panel_password'):
                 update_setting('panel_password', request.form.get('panel_password'))
 
-            for checkbox_key in ['force_subscription', 'sbp_enabled']:
+            for checkbox_key in ['force_subscription', 'sbp_enabled', 'trial_enabled', 'enable_referrals']:
                 values = request.form.getlist(checkbox_key)
                 value = values[-1] if values else 'false'
                 update_setting(checkbox_key, 'true' if value == 'true' else 'false')
 
             for key in ALL_SETTINGS_KEYS:
-                if key in ['panel_password', 'force_subscription', 'sbp_enabled']:
+                if key in ['panel_password', 'force_subscription', 'sbp_enabled', 'trial_enabled', 'enable_referrals']:
                     continue
                 update_setting(key, request.form.get(key, ''))
 

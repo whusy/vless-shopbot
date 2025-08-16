@@ -21,7 +21,8 @@ def initialize_db():
                     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     is_banned BOOLEAN DEFAULT 0,
                     referred_by INTEGER,
-                    referral_balance REAL DEFAULT 0
+                    referral_balance REAL DEFAULT 0,
+                    referral_balance_all REAL DEFAULT 0
                 )
             ''')
             cursor.execute('''
@@ -88,8 +89,12 @@ def initialize_db():
                 "receipt_email": "example@example.com",
                 "telegram_bot_token": None,
                 "telegram_bot_username": None,
+                "trial_enabled": "true",
+                "trial_duration_days": "3",
+                "enable_referrals": "true",
                 "referral_percentage": "10",
                 "referral_discount": "5",
+                "minimum_withdrawal": "100",
                 "admin_telegram_id": None,
                 "yookassa_shop_id": None,
                 "yookassa_secret_key": None,
@@ -136,6 +141,12 @@ def run_migration():
             logging.info(" -> The column 'referral_balance' is successfully added.")
         else:
             logging.info(" -> The column 'referral_balance' already exists.")
+        
+        if 'referral_balance_all' not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN referral_balance_all REAL DEFAULT 0")
+            logging.info(" -> The column 'referral_balance_all' is successfully added.")
+        else:
+            logging.info(" -> The column 'referral_balance_all' already exists.")
         
         logging.info("The table 'users' has been successfully updated.")
 
@@ -353,6 +364,35 @@ def add_to_referral_balance(user_id: int, amount: float):
             conn.commit()
     except sqlite3.Error as e:
         logging.error(f"Failed to add to referral balance for user {user_id}: {e}")
+
+def set_referral_balance(user_id: int, value: float):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET referral_balance = ? WHERE telegram_id = ?", (value, user_id))
+            conn.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Failed to set referral balance for user {user_id}: {e}")
+
+def set_referral_balance_all(user_id: int, value: float):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET referral_balance_all = ? WHERE telegram_id = ?", (value, user_id))
+            conn.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Failed to set total referral balance for user {user_id}: {e}")
+
+def get_referral_balance(user_id: int) -> float:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT referral_balance FROM users WHERE telegram_id = ?", (user_id,))
+            result = cursor.fetchone()
+            return result[0] if result else 0.0
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get referral balance for user {user_id}: {e}")
+        return 0.0
 
 def get_referral_count(user_id: int) -> int:
     try:

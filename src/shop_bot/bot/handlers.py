@@ -38,7 +38,8 @@ from shop_bot.data_manager.database import (
     register_user_if_not_exists, get_next_key_number, get_key_by_id,
     update_key_info, set_trial_used, set_terms_agreed, get_setting, get_all_hosts,
     get_plans_for_host, get_plan_by_id, log_transaction, get_referral_count,
-    add_to_referral_balance, create_pending_transaction, get_all_users
+    add_to_referral_balance, create_pending_transaction, get_all_users,
+    set_referral_balance, set_referral_balance_all
 )
 
 from shop_bot.config import (
@@ -72,6 +73,9 @@ class Broadcast(StatesGroup):
     waiting_for_button_text = State()
     waiting_for_button_url = State()
     waiting_for_confirmation = State()
+
+class WithdrawStates(StatesGroup):
+    waiting_for_details = State()
 
 def is_valid_email(email: str) -> bool:
     pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
@@ -417,21 +421,10 @@ def get_user_router() -> Router:
         user_id = callback.from_user.id
         user_data = get_user(user_id)
         bot_username = (await callback.bot.get_me()).username
-        support_user = get_setting("support_user")
         
         referral_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
         referral_count = get_referral_count(user_id)
         balance = user_data.get('referral_balance', 0)
-        
-        withdrawal_info = ""
-        if support_user:
-            withdrawal_info = (
-                f"\n\nДля вывода средств с баланса, пожалуйста, напишите в поддержку: {support_user}"
-            )
-        else:
-            withdrawal_info = (
-                "\n\nКонтакт для вывода средств не настроен. Обратитесь к администратору."
-            )
 
         text = (
             "🤝 <b>Реферальная программа</b>\n\n"
@@ -439,13 +432,85 @@ def get_user_router() -> Router:
             f"<b>Ваша реферальная ссылка:</b>\n<code>{referral_link}</code>\n\n"
             f"<b>Приглашено пользователей:</b> {referral_count}\n"
             f"<b>Ваш баланс:</b> {balance:.2f} RUB"
-        ) + withdrawal_info
-        
-        await callback.message.edit_text(
-            text,
-            reply_markup=keyboards.create_back_to_menu_keyboard(),
-            disable_web_page_preview=True
         )
+
+        builder = InlineKeyboardBuilder()
+        if balance >= 100:
+            builder.button(text="💸 Оставить заявку на вывод", callback_data="withdraw_request")
+        builder.button(text="⬅️ Назад", callback_data="back_to_main_menu")
+        await callback.message.edit_text(
+            text, reply_markup=builder.as_markup()
+        )
+
+    @user_router.callback_query(F.data == "withdraw_request")
+    @registration_required
+    async def withdraw_request_handler(callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer()
+        await callback.message.edit_text(
+            "Пожалуйста, отправьте ваши реквизиты для вывода (номер карты или номер телефона и банк):"
+        )
+        await state.set_state(WithdrawStates.waiting_for_details)
+
+    @user_router.message(WithdrawStates.waiting_for_details)
+    @registration_required
+    async def process_withdraw_details(message: types.Message, state: FSMContext):
+        user_id = message.from_user.id
+        user = get_user(user_id)
+        balance = user.get('referral_balance', 0)
+        details = message.text.strip()
+        if balance < 100:
+            await message.answer("❌ Ваш баланс менее 100 руб. Вывод недоступен.")
+            await state.clear()
+            return
+
+        admin_id = int(get_setting("admin_telegram_id"))
+        text = (
+            f"💸 <b>Заявка на вывод реферальных средств</b>\n"
+            f"👤 Пользователь: @{user.get('username', 'N/A')} (ID: <code>{user_id}</code>)\n"
+            f"💰 Сумма: <b>{balance:.2f} RUB</b>\n"
+            f"📄 Реквизиты: <code>{details}</code>\n\n"
+            f"/approve_withdraw_{user_id} /decline_withdraw_{user_id}"
+        )
+        await message.answer("Ваша заявка отправлена администратору. Ожидайте ответа.")
+        await message.bot.send_message(admin_id, text, parse_mode="HTML")
+        await state.clear()
+
+    @user_router.message(Command(commands=["approve_withdraw"]))
+    async def approve_withdraw_handler(message: types.Message):
+        admin_id = int(get_setting("admin_telegram_id"))
+        if message.from_user.id != admin_id:
+            return
+        try:
+            user_id = int(message.text.split("_")[-1])
+            user = get_user(user_id)
+            balance = user.get('referral_balance', 0)
+            if balance < 100:
+                await message.answer("Баланс пользователя менее 100 руб.")
+                return
+            set_referral_balance(user_id, 0)
+            set_referral_balance_all(user_id, 0)
+            await message.answer(f"✅ Выплата {balance:.2f} RUB пользователю {user_id} подтверждена.")
+            await message.bot.send_message(
+                user_id,
+                f"✅ Ваша заявка на вывод {balance:.2f} RUB одобрена. Деньги будут переведены в ближайшее время."
+            )
+        except Exception as e:
+            await message.answer(f"Ошибка: {e}")
+
+    @user_router.message(Command(commands=["decline_withdraw"]))
+    async def decline_withdraw_handler(message: types.Message):
+        admin_id = int(get_setting("admin_telegram_id"))
+        if message.from_user.id != admin_id:
+            return
+        try:
+            user_id = int(message.text.split("_")[-1])
+            await message.answer(f"❌ Заявка пользователя {user_id} отклонена.")
+            await message.bot.send_message(
+                user_id,
+                "❌ Ваша заявка на вывод отклонена. Проверьте корректность реквизитов и попробуйте снова."
+            )
+        except Exception as e:
+            await message.answer(f"Ошибка: {e}")
 
     @user_router.callback_query(F.data == "show_about")
     @registration_required
@@ -535,13 +600,13 @@ def get_user_router() -> Router:
 
     async def process_trial_key_creation(message: types.Message, host_name: str):
         user_id = message.chat.id
-        await message.edit_text(f"Отлично! Создаю для вас бесплатный ключ на 3 дня на сервере \"{host_name}\"...")
-        
+        await message.edit_text(f"Отлично! Создаю для вас бесплатный ключ на {get_setting('trial_duration_days')} дня на сервере \"{host_name}\"...")
+
         try:
             result = await xui_api.create_or_update_key_on_host(
                 host_name=host_name,
                 email=f"user{user_id}-key{get_next_key_number(user_id)}-trial@telegram.bot",
-                days_to_add=3
+                days_to_add=int(get_setting("trial_duration_days"))
             )
             if not result:
                 await message.edit_text("❌ Не удалось создать пробный ключ. Ошибка на сервере.")
@@ -624,27 +689,111 @@ def get_user_router() -> Router:
         except Exception as e:
             logger.error(f"Error showing QR for key {key_id}: {e}")
 
-    @user_router.callback_query(F.data.startswith("show_instruction_"))
+    @user_router.callback_query(F.data.startswith("howto_vless_"))
     @registration_required
     async def show_instruction_handler(callback: types.CallbackQuery):
         await callback.answer()
         key_id = int(callback.data.split("_")[2])
 
-        instruction_text = (
-            "<b>Как подключиться?</b>\n\n"
-            "1. Скопируйте ключ подключения `vless://...`\\.\n"
-            "2. Скачайте приложение, совместимое с Xray/V2Ray:\n"
-            "   - <b>Android:</b> V2RayTUN https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru\n"
-            "   - <b>iOS:</b> V2RayTUN https://apps.apple.com/us/app/v2raytun/id6476628951?platform=iphone\n"
-            "   - <b>Windows/Linux:</b> Nekoray 3.26 https://github.com/MatsuriDayo/nekoray/releases/tag/3.26\n"
-            "3. Посмотреть и полностью прочитать туториал по использованию ключей можно на: https://web.archive.org/web/20250622005028/https://wiki.aeza.net/nekoray-universal-client.\n"
-        )
-        
         await callback.message.edit_text(
-            instruction_text,
-            reply_markup=keyboards.create_back_to_key_keyboard(key_id),
+            "Выберите вашу платформу для инструкции по подключению VLESS:",
+            reply_markup=keyboards.create_howto_vless_keyboard_key(key_id),
             disable_web_page_preview=True
         )
+    
+    @user_router.callback_query(F.data.startswith("howto_vless"))
+    @registration_required
+    async def show_instruction_handler(callback: types.CallbackQuery):
+        await callback.answer()
+
+        await callback.message.edit_text(
+            "Выберите вашу платформу для инструкции по подключению VLESS:",
+            reply_markup=keyboards.create_howto_vless_keyboard(),
+            disable_web_page_preview=True
+        )
+
+    @user_router.callback_query(F.data == "howto_android")
+    @registration_required
+    async def howto_android_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            "<b>Подключение на Android</b>\n\n"
+            "1. <b>Установите приложение V2RayTun:</b> Загрузите и установите приложение V2RayTun из Google Play Store.\n"
+            "2. <b>Скопируйте свой ключ (vless://)</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
+            "3. <b>Импортируйте конфигурацию:</b>\n"
+            "   • Откройте V2RayTun.\n"
+            "   • Нажмите на значок + в правом нижнем углу.\n"
+            "   • Выберите «Импортировать конфигурацию из буфера обмена» (или аналогичный пункт).\n"
+            "4. <b>Выберите сервер:</b> Выберите появившийся сервер в списке.\n"
+            "5. <b>Подключитесь к VPN:</b> Нажмите на кнопку подключения (значок «V» или воспроизведения). Возможно, потребуется разрешение на создание VPN-подключения.\n"
+            "6. <b>Проверьте подключение:</b> После подключения проверьте свой IP-адрес, например, на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.",
+        reply_markup=keyboards.create_howto_vless_keyboard(),
+        disable_web_page_preview=True
+    )
+
+    @user_router.callback_query(F.data == "howto_ios")
+    @registration_required
+    async def howto_ios_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            "<b>Подключение на iOS (iPhone/iPad)</b>\n\n"
+            "1. <b>Установите приложение V2RayTun:</b> Загрузите и установите приложение V2RayTun из App Store.\n"
+            "2. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
+            "3. <b>Импортируйте конфигурацию:</b>\n"
+            "   • Откройте V2RayTun.\n"
+            "   • Нажмите на значок +.\n"
+            "   • Выберите «Импортировать конфигурацию из буфера обмена» (или аналогичный пункт).\n"
+            "4. <b>Выберите сервер:</b> Выберите появившийся сервер в списке.\n"
+            "5. <b>Подключитесь к VPN:</b> Включите главный переключатель в V2RayTun. Возможно, потребуется разрешить создание VPN-подключения.\n"
+            "6. <b>Проверьте подключение:</b> После подключения проверьте свой IP-адрес, например, на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.",
+        reply_markup=keyboards.create_howto_vless_keyboard(),
+        disable_web_page_preview=True
+    )
+
+    @user_router.callback_query(F.data == "howto_windows")
+    @registration_required
+    async def howto_windows_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            "<b>Подключение на Windows</b>\n\n"
+            "1. <b>Установите приложение Nekoray:</b> Загрузите Nekoray с https://github.com/MatsuriDayo/Nekoray/releases. Выберите подходящую версию (например, Nekoray-x64.exe).\n"
+            "2. <b>Распакуйте архив:</b> Распакуйте скачанный архив в удобное место.\n"
+            "3. <b>Запустите Nekoray.exe:</b> Откройте исполняемый файл.\n"
+            "4. <b>Скопируйте свой ключ (vless://)</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
+            "5. <b>Импортируйте конфигурацию:</b>\n"
+            "   • В Nekoray нажмите «Сервер» (Server).\n"
+            "   • Выберите «Импортировать из буфера обмена».\n"
+            "   • Nekoray автоматически импортирует конфигурацию.\n"
+            "6. <b>Обновите серверы (если нужно):</b> Если серверы не появились, нажмите «Серверы» → «Обновить все серверы».\n"
+            "7. Сверху включите пункт 'Режим TUN' ('Tun Mode')\n"
+            "8. <b>Выберите сервер:</b> В главном окне выберите появившийся сервер.\n"
+            "9. <b>Подключитесь к VPN:</b> Нажмите «Подключить» (Connect).\n"
+            "10. <b>Проверьте подключение:</b> Откройте браузер и проверьте IP на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.",
+        reply_markup=keyboards.create_howto_vless_keyboard(),
+        disable_web_page_preview=True
+    )
+
+    @user_router.callback_query(F.data == "howto_linux")
+    @registration_required
+    async def howto_linux_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            "<b>Подключение на Linux</b>\n\n"
+            "1. <b>Скачайте и распакуйте Nekoray:</b> Перейдите на https://github.com/MatsuriDayo/Nekoray/releases и скачайте архив для Linux. Распакуйте его в удобную папку.\n"
+            "2. <b>Запустите Nekoray:</b> Откройте терминал, перейдите в папку с Nekoray и выполните <code>./nekoray</code> (или используйте графический запуск, если доступен).\n"
+            "3. <b>Скопируйте свой ключ (vless://)</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
+            "4. <b>Импортируйте конфигурацию:</b>\n"
+            "   • В Nekoray нажмите «Сервер» (Server).\n"
+            "   • Выберите «Импортировать из буфера обмена».\n"
+            "   • Nekoray автоматически импортирует конфигурацию.\n"
+            "5. <b>Обновите серверы (если нужно):</b> Если серверы не появились, нажмите «Серверы» → «Обновить все серверы».\n"
+            "6. Сверху включите пункт 'Режим TUN' ('Tun Mode')\n"
+            "7. <b>Выберите сервер:</b> В главном окне выберите появившийся сервер.\n"
+            "8. <b>Подключитесь к VPN:</b> Нажмите «Подключить» (Connect).\n"
+            "9. <b>Проверьте подключение:</b> Откройте браузер и проверьте IP на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.",
+        reply_markup=keyboards.create_howto_vless_keyboard(),
+        disable_web_page_preview=True
+    )
 
     @user_router.callback_query(F.data == "buy_new_key")
     @registration_required
@@ -1194,7 +1343,7 @@ async def _start_ton_connect_process(user_id: int, transaction_payload: dict) ->
     _listener_tasks[user_id] = task
 
     wallets = connector.get_wallets()
-    return connector.connect(wallets[0])
+    return await connector.connect(wallets[0])
 
 async def process_successful_onboarding(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer("✅ Спасибо! Доступ предоставлен.")

@@ -186,6 +186,22 @@
 			</section>
 			<section class="settings-section">
 				<h2>Настройки Реферальной программы</h2>
+				<div class="form-group form-group-checkbox">
+					<input type="hidden" name="enable_referrals" value="false" />
+					<input type="checkbox" id="enable_referrals" name="enable_referrals"
+					value="true" {% if settings.enable_referrals == 'true' %}checked{%
+					endif %}>
+					<label for="enable_referrals">Включить реферальную систему</label>
+				</div>
+				<div class="form-group">
+					<label for="minimum_withdrawal">Минимальная сумма для вывода:</label>
+					<input
+						type="number"
+						id="minimum_withdrawal"
+						name="minimum_withdrawal"
+						value="{{ settings.minimum_withdrawal or '10' }}"
+					/>
+				</div>
 				<div class="form-group">
 					<label for="referral_percentage"
 						>Процент вознаграждения пригласившему (%):</label
@@ -206,6 +222,27 @@
 						id="referral_discount"
 						name="referral_discount"
 						value="{{ settings.referral_discount or '5' }}"
+					/>
+				</div>
+			</section>
+			<section class="settings-section">
+				<h2>Настройки Пробного периода</h2>
+				<div class="form-group form-group-checkbox">
+					<input type="hidden" name="trial_enabled" value="false" />
+					<input type="checkbox" id="trial_enabled" name="trial_enabled"
+					value="true" {% if settings.trial_enabled == 'true' %}checked{% endif
+					%}>
+					<label for="trial_enabled">Включить пробный период</label>
+				</div>
+				<div class="form-group">
+					<label for="trial_duration_days"
+						>Длительность пробного периода (в днях):</label
+					>
+					<input
+						type="number"
+						id="trial_duration_days"
+						name="trial_duration_days"
+						value="{{ settings.trial_duration_days or '3' }}"
 					/>
 				</div>
 			</section>

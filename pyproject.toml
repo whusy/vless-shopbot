@@ -1,7 +1,7 @@
 [project]
-name = "3x-ui-shop"
-version = "2.0.9"
-description = "Бот для автоматической продажи VLESS VPN из панели 3x-ui"
+name = "vles-shopbot"
+version = "2.1.0"
+description = "Бот для автоматической продажи VLESS VPN"
 dependencies = [
     "aiogram==3.21.0",
     "flask==3.1.1",
