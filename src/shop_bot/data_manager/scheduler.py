@@ -152,7 +152,9 @@ async def sync_keys_with_panels():
                 server_client = clients_on_server.pop(key_email, None)
 
                 if server_client:
-                    server_expiry_ms = server_client.expiry_time
+                    print(server_client)
+                    reset_days = server_client.reset if server_client.reset is not None else 0
+                    server_expiry_ms = server_client.expiry_time + reset_days * 24 * 3600 * 1000
                     local_expiry_dt = datetime.fromisoformat(db_key['expiry_date'])
                     local_expiry_ms = int(local_expiry_dt.timestamp() * 1000)
 
