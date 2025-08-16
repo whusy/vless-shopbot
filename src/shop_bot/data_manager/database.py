@@ -585,7 +585,7 @@ def delete_key_by_email(email: str):
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM keys WHERE key_email = ?", (email,))
+            cursor.execute("DELETE FROM vpn_keys WHERE key_email = ?", (email,))
             conn.commit()
     except sqlite3.Error as e:
         logging.error(f"Failed to delete key '{email}': {e}")
