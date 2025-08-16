@@ -148,14 +148,24 @@ async def sync_keys_with_panels():
             
             for db_key in keys_in_db:
                 key_email = db_key['key_email']
-                
+                expiry_date = datetime.fromisoformat(db_key['expiry_date'])
+                now = datetime.now()
+                if expiry_date < now - timedelta(days=5):
+                    logger.info(f"Scheduler: Key '{key_email}' expired more than 5 days ago. Deleting from panel and DB.")
+                    try:
+                        await xui_api.delete_client_on_host(host_name, key_email)
+                    except Exception as e:
+                        logger.error(f"Scheduler: Failed to delete client '{key_email}' from panel: {e}")
+                    database.delete_key_by_email(key_email)
+                    total_affected_records += 1
+                    continue
+
                 server_client = clients_on_server.pop(key_email, None)
 
                 if server_client:
-                    print(server_client)
                     reset_days = server_client.reset if server_client.reset is not None else 0
                     server_expiry_ms = server_client.expiry_time + reset_days * 24 * 3600 * 1000
-                    local_expiry_dt = datetime.fromisoformat(db_key['expiry_date'])
+                    local_expiry_dt = expiry_date
                     local_expiry_ms = int(local_expiry_dt.timestamp() * 1000)
 
                     if abs(server_expiry_ms - local_expiry_ms) > 1000:
