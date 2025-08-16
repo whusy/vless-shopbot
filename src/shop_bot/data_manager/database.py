@@ -581,6 +581,15 @@ def add_new_key(user_id: int, host_name: str, xui_client_uuid: str, key_email: s
         logging.error(f"Failed to add new key for user {user_id}: {e}")
         return None
 
+def delete_key_by_email(email: str):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM keys WHERE key_email = ?", (email,))
+            conn.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Failed to delete key '{email}': {e}")
+
 def get_user_keys(user_id: int):
     try:
         with sqlite3.connect(DB_FILE) as conn:
