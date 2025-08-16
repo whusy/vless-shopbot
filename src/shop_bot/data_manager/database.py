@@ -565,6 +565,18 @@ def get_key_by_id(key_id: int):
         logging.error(f"Failed to get key by ID {key_id}: {e}")
         return None
 
+def get_key_by_email(key_email: str):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM vpn_keys WHERE key_email = ?", (key_email,))
+            key_data = cursor.fetchone()
+            return dict(key_data) if key_data else None
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get key by email {key_email}: {e}")
+        return None
+
 def update_key_info(key_id: int, new_xui_uuid: str, new_expiry_ms: int):
     try:
         with sqlite3.connect(DB_FILE) as conn:

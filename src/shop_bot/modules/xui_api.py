@@ -6,7 +6,7 @@ from typing import List, Dict
 
 from py3xui import Api, Client, Inbound
 
-from shop_bot.data_manager.database import get_host
+from shop_bot.data_manager.database import get_host, get_key_by_email
 
 logger = logging.getLogger(__name__)
 
@@ -174,16 +174,15 @@ async def delete_client_on_host(host_name: str, client_email: str) -> bool:
         return False
         
     try:
-        client_to_delete = api.client.get_by_email(client_email)
-        logger.info(client_to_delete)
+        client_to_delete = get_key_by_email(client_email)
         if client_to_delete:
-            api.client.delete(inbound.id, client_to_delete.id)
-            logger.info(f"Successfully deleted client '{client_to_delete.id}' from host '{host_name}'.")
+            api.client.delete(inbound.id, client_to_delete['xui_client_uuid'])
+            logger.info(f"Successfully deleted client '{client_to_delete['xui_client_uuid']}' from host '{host_name}'.")
             return True
         else:
-            logger.warning(f"Client '{client_to_delete.id}' not found on host '{host_name}' for deletion (already gone).")
+            logger.warning(f"Client '{client_to_delete['xui_client_uuid']}' not found on host '{host_name}' for deletion (already gone).")
             return True
             
     except Exception as e:
-        logger.error(f"Failed to delete client '{client_to_delete.id}' from host '{host_name}': {e}", exc_info=True)
+        logger.error(f"Failed to delete client '{client_to_delete['xui_client_uuid']}' from host '{host_name}': {e}", exc_info=True)
         return False
