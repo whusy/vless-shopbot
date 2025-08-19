@@ -58,6 +58,12 @@ def initialize_db():
                 )
             ''')
             cursor.execute('''
+                CREATE TABLE IF NOT EXISTS support_threads (
+                    user_id INTEGER PRIMARY KEY,
+                    thread_id INTEGER NOT NULL
+                )
+            ''')
+            cursor.execute('''
                 CREATE TABLE IF NOT EXISTS xui_hosts(
                     host_name TEXT NOT NULL,
                     host_url TEXT NOT NULL,
@@ -88,6 +94,7 @@ def initialize_db():
                 "force_subscription": "true",
                 "receipt_email": "example@example.com",
                 "telegram_bot_token": None,
+                "support_bot_token": None,
                 "telegram_bot_username": None,
                 "trial_enabled": "true",
                 "trial_duration_days": "3",
@@ -95,6 +102,7 @@ def initialize_db():
                 "referral_percentage": "10",
                 "referral_discount": "5",
                 "minimum_withdrawal": "100",
+                "support_group_id": None,
                 "admin_telegram_id": None,
                 "yookassa_shop_id": None,
                 "yookassa_secret_key": None,
@@ -731,6 +739,49 @@ def get_recent_transactions(limit: int = 15) -> list[dict]:
     except sqlite3.Error as e:
         logging.error(f"Failed to get recent transactions: {e}")
     return transactions
+
+def add_support_thread(user_id: int, thread_id: int):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR REPLACE INTO support_threads (user_id, thread_id) VALUES (?, ?)", (user_id, thread_id))
+            conn.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Failed to add support thread for user {user_id}: {e}")
+
+def get_support_thread_id(user_id: int) -> int | None:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT thread_id FROM support_threads WHERE user_id = ?", (user_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get support thread_id for user {user_id}: {e}")
+        return None
+
+def get_user_id_by_thread(thread_id: int) -> int | None:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM support_threads WHERE thread_id = ?", (thread_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get user_id for thread {thread_id}: {e}")
+        return None
+
+def get_latest_transaction(user_id: int) -> dict | None:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_date DESC LIMIT 1", (user_id,))
+            transaction = cursor.fetchone()
+            return dict(transaction) if transaction else None
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get latest transaction for user {user_id}: {e}")
+        return None
 
 def get_all_users() -> list[dict]:
     try:

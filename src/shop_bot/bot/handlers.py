@@ -150,7 +150,7 @@ def get_user_router() -> Router:
         privacy_url = get_setting("privacy_url")
         channel_url = get_setting("channel_url")
 
-        if not channel_url and (not terms_url or not privacy_url):
+        if not channel_url or not terms_url or not privacy_url:
             set_terms_agreed(user_id)
             await show_main_menu(message)
             return
@@ -167,15 +167,15 @@ def get_user_router() -> Router:
         welcome_parts = ["<b>Добро пожаловать!</b>\n"]
         
         if is_subscription_forced and channel_url:
-            welcome_parts.append("Для доступа ко всем функциям, пожалуйста, подпишитесь на наш канал.")
+            welcome_parts.append("Для доступа ко всем функциям, пожалуйста, подпишитесь на наш канал.\n")
         
-        if terms_url and privacy_url:
-            welcome_parts.append(
-                "Также необходимо ознакомиться и принять наши "
-                f"<a href='{terms_url}'>Условия использования</a> и "
-                f"<a href='{privacy_url}'>Политику конфиденциальности</a>."
-            )
-        
+        if terms_url:
+            welcome_parts.append("Также необходимо ознакомиться и принять наши Условия использования.")
+        elif privacy_url:
+            welcome_parts.append("Также необходимо ознакомиться с нашей Политикой конфиденциальности.")
+        elif terms_url and privacy_url:
+            welcome_parts.append("Также необходимо ознакомиться с нашими Условиями использования и Политикой конфиденциальности.")
+
         welcome_parts.append("\nПосле этого нажмите кнопку ниже.")
         final_text = "\n".join(welcome_parts)
         
@@ -183,7 +183,9 @@ def get_user_router() -> Router:
             final_text,
             reply_markup=keyboards.create_welcome_keyboard(
                 channel_url=channel_url,
-                is_subscription_forced=is_subscription_forced
+                is_subscription_forced=is_subscription_forced,
+                terms_url=terms_url,
+                privacy_url=privacy_url
             ),
             disable_web_page_preview=True
         )

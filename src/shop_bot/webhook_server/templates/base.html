@@ -17,7 +17,7 @@
 					<a
 						href="{{ url_for('dashboard_page') }}"
 						class="nav-link {% if request.endpoint == 'dashboard_page' %}active{% endif %}"
-						>Главная</a
+						>Dashboard</a
 					>
 					<a
 						href="{{ url_for('users_page') }}"
@@ -30,41 +30,57 @@
 						>Настройки</a
 					>
 				</nav>
-                <div class="bm">
-                    <input id="burger" type="checkbox" />
-                    <label for="burger" class="burger_img"></label>
-                    <nav class="burger-menu">
-                        <ul>
-                            <li><a href="{{ url_for('dashboard_page') }}">Главная</a></li>
-                            <li><a href="{{ url_for('users_page') }}">Пользователь</a></li>
-                            <li><a href="{{ url_for('settings_page') }}">Настройки</a></li>
-                        </ul>
-                    </nav>
-                </div>
-
 
 				<div class="header-controls">
 					<div class="bot-control">
-						{% if bot_status.is_running %}
-						<p class="status-running">Статус: <strong>Запущен</strong></p>
-						<form action="{{ url_for('stop_bot_route') }}" method="post">
+						{% if bot_status.shop_bot_running %}
+						<p class="status-running">Shop: <strong>Запущен</strong></p>
+						<form action="{{ url_for('stop_shop_bot_route') }}" method="post">
 							<button type="submit" class="button button-stop button-small">
 								Остановить
 							</button>
 						</form>
 						{% else %}
-						<p class="status-stopped">Статус: <strong>Остановлен</strong></p>
+						<p class="status-stopped">Shop: <strong>Остановлен</strong></p>
 						{% if all_settings_ok %}
-						<form action="{{ url_for('start_bot_route') }}" method="post">
+						<form action="{{ url_for('start_shop_bot_route') }}" method="post">
 							<button type="submit" class="button button-start button-small">
 								Запустить
 							</button>
 						</form>
 						{% else %}
-						<button class="button button-disabled button-small" disabled>
+						<button
+							class="button button-disabled button-small"
+							disabled
+							title="Заполните обязательные настройки Telegram"
+						>
 							Запустить
 						</button>
 						{% endif %} {% endif %}
+					</div>
+
+					<div class="bot-control">
+						{% if bot_status.support_bot_running %}
+						<p class="status-running">Support: <strong>Запущен</strong></p>
+						<form
+							action="{{ url_for('stop_support_bot_route') }}"
+							method="post"
+						>
+							<button type="submit" class="button button-stop button-small">
+								Остановить
+							</button>
+						</form>
+						{% else %}
+						<p class="status-stopped">Support: <strong>Остановлен</strong></p>
+						<form
+							action="{{ url_for('start_support_bot_route') }}"
+							method="post"
+						>
+							<button type="submit" class="button button-start button-small">
+								Запустить
+							</button>
+						</form>
+						{% endif %}
 					</div>
 
 					<div class="user-session-controls">
@@ -87,8 +103,6 @@
 
 			<main>{% block content %}{% endblock %}</main>
 		</div>
-
-		<footer class="main-footer"></footer>
 		<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 	</body>
 </html>

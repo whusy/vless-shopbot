@@ -12,9 +12,7 @@ build/
 dist/
 *.egg-info/
 
-.env
 *.db
-TODO
 
 .idea/
 .vscode/

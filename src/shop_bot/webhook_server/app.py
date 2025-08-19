@@ -31,7 +31,8 @@ ALL_SETTINGS_KEYS = [
     "telegram_bot_username", "admin_telegram_id", "yookassa_shop_id",
     "yookassa_secret_key", "sbp_enabled", "receipt_email", "cryptobot_token",
     "heleket_merchant_id", "heleket_api_key", "domain", "referral_percentage",
-    "referral_discount", "ton_wallet_address", "tonapi_key", "force_subscription", "trial_enabled", "trial_duration_days", "enable_referrals", "minimum_withdrawal"
+    "referral_discount", "ton_wallet_address", "tonapi_key", "force_subscription", "trial_enabled", "trial_duration_days", "enable_referrals", "minimum_withdrawal",
+    "support_group_id", "support_bot_token"
 ]
 
 def create_webhook_app(bot_controller_instance):
@@ -171,18 +172,32 @@ def create_webhook_app(bot_controller_instance):
         common_data = get_common_template_data()
         return render_template('settings.html', settings=current_settings, hosts=hosts, **common_data)
 
-    @flask_app.route('/start-bot', methods=['POST'])
+    @flask_app.route('/start-shop-bot', methods=['POST'])
     @login_required
-    def start_bot_route():
-        result = _bot_controller.start()
-        flash(result['message'], 'success' if result['status'] == 'success' else 'danger')
+    def start_shop_bot_route():
+        result = _bot_controller.start_shop_bot()
+        flash(result.get('message', 'An error occurred.'), 'success' if result.get('status') == 'success' else 'danger')
         return redirect(request.referrer or url_for('dashboard_page'))
 
-    @flask_app.route('/stop-bot', methods=['POST'])
+    @flask_app.route('/stop-shop-bot', methods=['POST'])
     @login_required
-    def stop_bot_route():
-        result = _bot_controller.stop()
-        flash(result['message'], 'success' if result['status'] == 'success' else 'danger')
+    def stop_shop_bot_route():
+        result = _bot_controller.stop_shop_bot()
+        flash(result.get('message', 'An error occurred.'), 'success' if result.get('status') == 'success' else 'danger')
+        return redirect(request.referrer or url_for('dashboard_page'))
+
+    @flask_app.route('/start-support-bot', methods=['POST'])
+    @login_required
+    def start_support_bot_route():
+        result = _bot_controller.start_support_bot()
+        flash(result.get('message', 'An error occurred.'), 'success' if result.get('status') == 'success' else 'danger')
+        return redirect(request.referrer or url_for('dashboard_page'))
+
+    @flask_app.route('/stop-support-bot', methods=['POST'])
+    @login_required
+    def stop_support_bot_route():
+        result = _bot_controller.stop_support_bot()
+        flash(result.get('message', 'An error occurred.'), 'success' if result.get('status') == 'success' else 'danger')
         return redirect(request.referrer or url_for('dashboard_page'))
 
     @flask_app.route('/users/ban/<int:user_id>', methods=['POST'])

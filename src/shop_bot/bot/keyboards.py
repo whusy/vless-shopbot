@@ -179,18 +179,32 @@ def create_back_to_menu_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
     return builder.as_markup()
 
-def create_welcome_keyboard(channel_url: str | None, is_subscription_forced: bool = False) -> InlineKeyboardMarkup:
+def create_welcome_keyboard(channel_url: str | None, is_subscription_forced: bool = False, terms_url: str | None = None, privacy_url: str | None = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    
-    if channel_url and is_subscription_forced:
+
+    if channel_url and terms_url and privacy_url and is_subscription_forced:
         builder.button(text="📢 Перейти в канал", url=channel_url)
+        builder.button(text="📄 Условия использования", url=terms_url)
+        builder.button(text="🔒 Политика конфиденциальности", url=privacy_url)
         builder.button(text="✅ Я подписался", callback_data="check_subscription_and_agree")
-    elif channel_url:
+    elif channel_url and terms_url and privacy_url:
         builder.button(text="📢 Наш канал (не обязательно)", url=channel_url)
+        builder.button(text="📄 Условия использования", url=terms_url)
+        builder.button(text="🔒 Политика конфиденциальности", url=privacy_url)
+        builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
+    elif terms_url and privacy_url:
+        builder.button(text="📄 Условия использования", url=terms_url)
+        builder.button(text="🔒 Политика конфиденциальности", url=privacy_url)
+        builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
+    elif terms_url:
+        builder.button(text="📄 Условия использования", url=terms_url)
+        builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
+    elif privacy_url:
+        builder.button(text="🔒 Политика конфиденциальности", url=privacy_url)
         builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
     else:
-        builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
-        
+        builder.button(text="📢 Наш канал (не обязательно)", url=channel_url)
+        builder.button(text="✅ Я подписался", callback_data="check_subscription_and_agree")
     builder.adjust(1)
     return builder.as_markup()
 

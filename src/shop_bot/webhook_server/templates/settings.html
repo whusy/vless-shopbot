@@ -13,7 +13,13 @@
 				<form action="{{ url_for('add_host_route') }}" method="post">
 					<div class="form-group">
 						<label for="host_name">Название хоста:</label>
-						<input type="text" id="host_name" name="host_name" required />
+						<input
+							type="text"
+							id="host_name"
+							name="host_name"
+							required
+							maxlength="26"
+						/>
 					</div>
 					<div class="form-group">
 						<label for="host_url">URL панели XUI:</label>
@@ -181,6 +187,42 @@
 						name="admin_telegram_id"
 						value="{{ settings.admin_telegram_id or '' }}"
 						required
+					/>
+				</div>
+			</section>
+			<section class="settings-section">
+				<h2>Настройки Поддержки и Бота-Саппорта</h2>
+				<div class="form-group">
+					<label for="support_user">URL поддержки или Бота-Саппорта:</label>
+					<input
+						type="text"
+						id="support_user"
+						name="support_user"
+						value="{{ settings.support_user or '' }}"
+					/>
+				</div>
+				<div class="form-group password-wrapper">
+					<label for="support_bot_token"
+						>Токен Support-бота (если используется):</label
+					>
+					<input
+						type="password"
+						id="support_bot_token"
+						name="support_bot_token"
+						value="{{ settings.support_bot_token or '' }}"
+					/>
+					<button type="button" class="toggle-password">👁️</button>
+				</div>
+				<div class="form-group">
+					<label for="support_group_id"
+						>ID Группы поддержки (должна быть включена функция форума
+						(Topics)):</label
+					>
+					<input
+						type="text"
+						id="support_group_id"
+						name="support_group_id"
+						value="{{ settings.support_group_id or '' }}"
 					/>
 				</div>
 			</section>
@@ -380,17 +422,6 @@
 						id="privacy_url"
 						name="privacy_url"
 						value="{{ settings.privacy_url or '' }}"
-					/>
-				</div>
-				<div class="form-group">
-					<label for="support_user"
-						>URL поддержки (напр. https://t.me/hahahahgaha):</label
-					>
-					<input
-						type="text"
-						id="support_user"
-						name="support_user"
-						value="{{ settings.support_user or '' }}"
 					/>
 				</div>
 				<div class="form-group">
