@@ -33,7 +33,7 @@ class BotController:
         logger.info("BotController: Event loop has been set.")
 
     def get_bot_instance(self) -> Bot | None:
-        return self._bot
+        return self.shop_bot
 
     
     async def _start_polling(self, bot, dp, name):
